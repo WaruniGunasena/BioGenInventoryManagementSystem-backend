@@ -100,4 +100,17 @@ public class CategoryServiceImpl implements CategoryService {
                 .message("Category was successfully Deleted")
                 .build();
     }
+
+    @Override
+    public Response searchCategory(String searchKey) {
+        List<Category> categories = categoryRepository.findByNameContainingOrDescriptionContaining(searchKey,searchKey);
+
+        List<CategoryDTO> categoryDTOList = modelMapper.map(categories, new TypeToken<List<CategoryDTO>>() {}.getType());
+
+        return Response.builder()
+                .status(200)
+                .message("Success")
+                .categories(categoryDTOList)
+                .build();
+    }
 }

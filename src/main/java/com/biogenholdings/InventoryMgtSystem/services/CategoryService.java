@@ -13,5 +13,7 @@ public interface CategoryService {
 
     Response updateCategory(Long id, CategoryDTO categoryDTO);
 
-    Response deleteCategory( Long id);
+    Response deleteCategory(Long id);
+
+    Response searchCategory(String searchKey);
 }

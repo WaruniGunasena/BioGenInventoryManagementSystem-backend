@@ -45,4 +45,9 @@ public class CategoryController {
         return ResponseEntity.ok(categoryService.deleteCategory(id));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<Response> searchCategory(@RequestParam String searchKey){
+        return ResponseEntity.ok(categoryService.searchCategory(searchKey));
+    }
+
 }
