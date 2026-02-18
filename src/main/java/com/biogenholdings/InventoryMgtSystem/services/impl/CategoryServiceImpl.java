@@ -105,7 +105,7 @@ public class CategoryServiceImpl implements CategoryService {
     public Response searchCategory(String searchKey) {
         List<Category> categories = categoryRepository.findByNameContainingOrDescriptionContaining(searchKey,searchKey);
 
-        List<CategoryDTO> categoryDTOList = modelMapper.map(categories, new TypeToken<CategoryDTO>() {}.getType());
+        List<CategoryDTO> categoryDTOList = modelMapper.map(categories, new TypeToken<List<CategoryDTO>>() {}.getType());
 
         return Response.builder()
                 .status(200)
