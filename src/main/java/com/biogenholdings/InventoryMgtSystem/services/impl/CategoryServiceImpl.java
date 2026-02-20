@@ -2,6 +2,7 @@ package com.biogenholdings.InventoryMgtSystem.services.impl;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.CategoryDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.Category;
 import com.biogenholdings.InventoryMgtSystem.repositories.CategoryRepository;
@@ -10,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -100,4 +104,47 @@ public class CategoryServiceImpl implements CategoryService {
                 .message("Category was successfully Deleted")
                 .build();
     }
+
+    @Override
+    public Response searchCategory(String searchKey) {
+        List<Category> categories = categoryRepository.findByNameContainingOrDescriptionContaining(searchKey,searchKey);
+
+        List<CategoryDTO> categoryDTOList = modelMapper.map(categories, new TypeToken<List<CategoryDTO>>() {}.getType());
+
+        return Response.builder()
+                .status(200)
+                .message("Success")
+                .categories(categoryDTOList)
+                .build();
+    }
+
+    @Override
+    public Response getPaginatedCategories(Integer page, Integer size,FilterEnum filter) {
+        Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
+
+        Page<Category> categoryPage = categoryRepository.findAll(pageable);
+
+        List<Category> categoryList = categoryPage.getContent();
+
+        List<CategoryDTO> categoryDTOList = modelMapper.map(categoryList, new TypeToken<List<CategoryDTO>>() {}.getType());
+
+        return Response.builder()
+                .status(200)
+                .message("Success")
+                .categories(categoryDTOList)
+                .totalPages(categoryPage.getTotalPages())
+                .totalElements(categoryPage.getTotalElements())
+                .build();
+
+    }
+
+    private Sort getSortByFilter(FilterEnum filter) {
+        log.info(filter.toString());
+        if (filter == FilterEnum.DESC) {
+            return Sort.by(Sort.Direction.DESC, "name");
+        } else {
+            return Sort.by(Sort.Direction.ASC, "name");
+        }
+    }
+
 }
