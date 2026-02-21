@@ -1,9 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.controllers;
 
-import com.biogenholdings.InventoryMgtSystem.dtos.CategoryDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.SupplierDTO;
-import com.biogenholdings.InventoryMgtSystem.services.CategoryService;
 import com.biogenholdings.InventoryMgtSystem.services.SupplierService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

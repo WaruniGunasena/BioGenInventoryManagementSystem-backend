@@ -1,12 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
-
-import com.biogenholdings.InventoryMgtSystem.dtos.CategoryDTO;
-import com.biogenholdings.InventoryMgtSystem.dtos.ProductDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.SupplierDTO;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
-import com.biogenholdings.InventoryMgtSystem.models.Category;
-import com.biogenholdings.InventoryMgtSystem.models.Product;
 import com.biogenholdings.InventoryMgtSystem.models.Supplier;
 import com.biogenholdings.InventoryMgtSystem.repositories.SupplierRepository;
 import com.biogenholdings.InventoryMgtSystem.services.SupplierService;
