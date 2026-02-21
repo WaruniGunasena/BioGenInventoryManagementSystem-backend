@@ -1,5 +1,4 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
-
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.SupplierDTO;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
@@ -110,6 +109,20 @@ public class SupplierServiceImpl implements SupplierService{
         return Response.builder()
                 .status(200)
                 .message("Supplier was successfully Deleted")
+                .build();
+    }
+
+    @Override
+    public Response searchSupplier(String searchKey) {
+
+        List<Supplier> suppliers = supplierRepository.findByNameContaining(searchKey);
+
+        List<SupplierDTO> supplierDTOList = modelMapper.map(suppliers, new TypeToken<List<SupplierDTO>>() {}.getType());
+
+        return Response.builder()
+                .status(200)
+                .message("success")
+                .suppliers(supplierDTOList)
                 .build();
     }
 }

@@ -30,6 +30,8 @@ public class Supplier {
     @Column(name = "phone_number")
     private String phoneNumber;
 
+    private String creditPeriod;
+
     private String email;
 
     private String address;
