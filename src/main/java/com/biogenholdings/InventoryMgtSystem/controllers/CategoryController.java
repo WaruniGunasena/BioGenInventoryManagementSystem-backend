@@ -2,6 +2,7 @@ package com.biogenholdings.InventoryMgtSystem.controllers;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.CategoryDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.services.CategoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,13 @@ public class CategoryController {
     @GetMapping("/search")
     public ResponseEntity<Response> searchCategory(@RequestParam String searchKey){
         return ResponseEntity.ok(categoryService.searchCategory(searchKey));
+    }
+
+    @GetMapping
+    public ResponseEntity<Response> paginatedResults(@RequestParam(defaultValue = "0") Integer page,
+                                                     @RequestParam(defaultValue = "5") Integer size,
+                                                     @RequestParam(defaultValue = "ASC")FilterEnum filter){
+        return ResponseEntity.ok(categoryService.getPaginatedCategories(page,size,filter));
     }
 
 }
