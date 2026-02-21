@@ -46,4 +46,10 @@ public class SupplierController {
     public ResponseEntity<Response> deleteSupplier(@PathVariable Long id){
         return ResponseEntity.ok(supplierService.deleteSupplier(id));
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<Response> searchSupplier(@RequestParam String searchKey){
+        return ResponseEntity.ok(supplierService.searchSupplier(searchKey));
+    }
+
 }

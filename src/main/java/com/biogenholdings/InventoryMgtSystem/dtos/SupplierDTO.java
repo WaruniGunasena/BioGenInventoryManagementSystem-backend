@@ -25,6 +25,8 @@ public class SupplierDTO {
     @NotBlank(message = "PhoneNumber is required")
     private String phoneNumber;
 
+    private String creditPeriod;
+
     private String email;
 
     private String address;

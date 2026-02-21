@@ -15,4 +15,7 @@ public interface SupplierService {
     Response updateSupplier(Long id, SupplierDTO supplierDTO);
 
     Response deleteSupplier( Long id);
+
+    Response searchSupplier(String searchKey);
+
 }
