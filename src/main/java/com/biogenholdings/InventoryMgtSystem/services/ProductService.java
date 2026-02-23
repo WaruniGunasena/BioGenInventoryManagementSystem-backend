@@ -2,6 +2,7 @@ package com.biogenholdings.InventoryMgtSystem.services;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.ProductDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface ProductService {
@@ -16,5 +17,7 @@ public interface ProductService {
 
     Response deleteProduct(Long id);
 
-    Response searchProduct(String input);
+    Response searchProduct(String searchKey);
+
+    Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter);
 }

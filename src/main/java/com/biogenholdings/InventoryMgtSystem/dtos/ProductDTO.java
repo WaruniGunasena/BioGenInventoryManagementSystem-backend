@@ -5,8 +5,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -21,9 +19,11 @@ public class ProductDTO {
 
     private Long categoryId;
 
+    private String categoryName;
+
     private String name;
 
-    private BigDecimal sellingPrice;
+    private String unit;
 
     private Integer minimumStockLevel;
 

@@ -3,13 +3,10 @@ package com.biogenholdings.InventoryMgtSystem.models;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -28,10 +25,6 @@ public class Product {
     @NotBlank(message = "Name is required")
     private String name;
 
-    @PositiveOrZero(message = "selling price must be a positive value")
-    @Column(name = "selling_price")
-    private BigDecimal sellingPrice;
-
     @Min(value = 0, message = "minimum stock quantity can not be negative")
     @Column(name = "minimum_stock_level")
     private Integer minimumStockLevel;
@@ -42,8 +35,11 @@ public class Product {
 
     private String description;
 
+    @Column(name = "unit")
+    private String unit;
+
     @Column(name = "image_url")
-    private String imageUrl;   // or imagePath
+    private String imageUrl;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -61,7 +57,6 @@ public class Product {
         return "Product{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
-                ", sellingPrice=" + sellingPrice +
                 ", minimumStockLevel=" + minimumStockLevel +
                 ", reorderLevel=" + reorderLevel +
                 ", description='" + description + '\'' +
