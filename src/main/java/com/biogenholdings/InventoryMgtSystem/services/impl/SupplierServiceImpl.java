@@ -3,7 +3,9 @@ import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.SupplierDTO;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.Supplier;
+import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.repositories.SupplierRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.UserRepository;
 import com.biogenholdings.InventoryMgtSystem.services.SupplierService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ import java.util.List;
 public class SupplierServiceImpl implements SupplierService{
 
     private final SupplierRepository supplierRepository;
+    private final UserRepository userRepository;
     private final ModelMapper modelMapper;
 
     @Override
@@ -109,6 +112,25 @@ public class SupplierServiceImpl implements SupplierService{
         return Response.builder()
                 .status(200)
                 .message("Supplier was successfully Deleted")
+                .build();
+    }
+
+    @Override
+    public Response softDeleteSupplier(Long id, Long userId) {
+        Supplier supplier = supplierRepository.findById(id)
+                .orElseThrow(()-> new NotFoundException("Supplier not Found"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(()-> new NotFoundException("User Not found"));
+
+        supplier.setIsDeleted(true);
+        supplier.setDeletedBy(user);
+
+        supplierRepository.save(supplier);
+
+        return Response.builder()
+                .status(204)
+                .message("Deleted Supplier Sucesfully")
                 .build();
     }
 

@@ -31,6 +31,7 @@ public class Category {
     private Boolean isDeleted;
 
     @ManyToOne
+    @JoinColumn(name = "deleted_by_id")
     private User deletedBy;
 
     private LocalDateTime deletedAt;
