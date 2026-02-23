@@ -2,6 +2,7 @@ package com.biogenholdings.InventoryMgtSystem.controllers;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.ProductDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.services.ProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,17 +23,17 @@ public class ProductController {
     @PostMapping("/add")
     @PreAuthorize("hasAnyAuthority('ADMIN','INVENTORY_MANAGER')")
     public ResponseEntity<Response> saveProduct(
-            @RequestParam("imageFile")MultipartFile imageFile,
+            @RequestParam(value = "imageFile", required = false)MultipartFile imageFile,
             @RequestParam("name")String name,
-            @RequestParam("sellingPrice") BigDecimal sellingPrice,
             @RequestParam("minimumStockLevel")Integer minimumStockLevel,
+            @RequestParam("unit")String unit,
             @RequestParam("reorderLevel")Integer reorderLevel,
             @RequestParam("categoryId")Long categoryId,
             @RequestParam(value = "description", required = false)String description
             ){
         ProductDTO productDTO = new ProductDTO();
         productDTO.setName(name);
-        productDTO.setSellingPrice(sellingPrice);
+        productDTO.setUnit(unit);
         productDTO.setMinimumStockLevel(minimumStockLevel);
         productDTO.setReorderLevel(reorderLevel);
         productDTO.setCategoryId(categoryId);
@@ -56,7 +57,6 @@ public class ProductController {
         ProductDTO productDTO = new ProductDTO();
         productDTO.setId(id);
         productDTO.setName(name);
-        productDTO.setSellingPrice(sellingPrice);
         productDTO.setMinimumStockLevel(minimumStockLevel);
         productDTO.setReorderLevel(reorderLevel);
         productDTO.setCategoryId(categoryId);
@@ -82,8 +82,15 @@ public class ProductController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Response> searchProduct(@RequestParam String input){
-        return ResponseEntity.ok(productService.searchProduct(input));
+    public ResponseEntity<Response> searchProduct(@RequestParam String searchKey){
+        return ResponseEntity.ok(productService.searchProduct(searchKey));
+    }
+
+    @GetMapping
+    public ResponseEntity<Response> paginatedResults(@RequestParam(defaultValue = "0") Integer page,
+                                                     @RequestParam(defaultValue = "5") Integer size,
+                                                     @RequestParam(defaultValue = "ASC") FilterEnum filter){
+        return ResponseEntity.ok(productService.getPaginatedProducts(page,size,filter));
     }
 
 }
