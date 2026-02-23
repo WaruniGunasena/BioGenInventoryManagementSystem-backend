@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -27,6 +28,20 @@ public class Category {
 
     private String description;
 
+    private Boolean isDeleted;
+
+    @ManyToOne
+    private User deletedBy;
+
+    private LocalDateTime deletedAt;
+
+    @PreUpdate
+    protected void onUpdate() {
+        if (Boolean.TRUE.equals(this.isDeleted) && this.deletedAt == null) {
+            this.deletedAt = LocalDateTime.now();
+        }
+    }
+
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL)
     private List<Product> products;
 
@@ -36,6 +51,9 @@ public class Category {
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", description='" + description + '\'' +
+                ", isDeleted=" + isDeleted +
+                ", deletedBy=" + deletedBy +
+                ", deletedAt=" + deletedAt +
                 '}';
     }
 }

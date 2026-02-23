@@ -16,6 +16,8 @@ public interface CategoryService {
 
     Response deleteCategory(Long id);
 
+    Response softDeleteCategory(Long id, Long userId);
+
     Response searchCategory(String searchKey);
 
     Response getPaginatedCategories(Integer page, Integer size, FilterEnum filter);

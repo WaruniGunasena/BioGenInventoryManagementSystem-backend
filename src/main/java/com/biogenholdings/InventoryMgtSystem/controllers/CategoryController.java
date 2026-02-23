@@ -46,6 +46,12 @@ public class CategoryController {
         return ResponseEntity.ok(categoryService.deleteCategory(id));
     }
 
+    @PutMapping("/softDelete")
+    @PreAuthorize(("hasAnyAuthority('ADMIN','INVENTORY_MANAGER')"))
+    public ResponseEntity<Response> softDeleteCategory(@RequestParam Long id, @RequestParam Long userId){
+        return ResponseEntity.ok(categoryService.softDeleteCategory(id,userId));
+    }
+
     @GetMapping("/search")
     public ResponseEntity<Response> searchCategory(@RequestParam String searchKey){
         return ResponseEntity.ok(categoryService.searchCategory(searchKey));

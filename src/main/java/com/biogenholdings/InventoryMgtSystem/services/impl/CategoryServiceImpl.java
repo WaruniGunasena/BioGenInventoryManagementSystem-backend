@@ -5,7 +5,9 @@ import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.Category;
+import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.repositories.CategoryRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.UserRepository;
 import com.biogenholdings.InventoryMgtSystem.services.CategoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,12 +28,14 @@ import java.util.List;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final UserRepository userRepository;
     private final ModelMapper modelMapper;
 
     @Override
     public Response createCategory(CategoryDTO categoryDTO) {
 
         Category categoryToSave = modelMapper.map(categoryDTO, Category.class);
+        categoryToSave.setIsDeleted(false);
 
         categoryRepository.save(categoryToSave);
 
@@ -92,6 +96,24 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    public Response softDeleteCategory(Long id, Long userId) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Category not Found"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(()-> new NotFoundException("User Not Found"));
+
+        category.setIsDeleted(true);
+        category.setDeletedBy(user);
+        categoryRepository.save(category);
+
+        return Response.builder()
+                .status(204)
+                .message("Category Deleted Successfully")
+                .build();
+    }
+
+    @Override
     public Response deleteCategory(Long id) {
 
         categoryRepository.findById(id)
@@ -103,6 +125,7 @@ public class CategoryServiceImpl implements CategoryService {
                 .status(200)
                 .message("Category was successfully Deleted")
                 .build();
+
     }
 
     @Override
@@ -122,7 +145,7 @@ public class CategoryServiceImpl implements CategoryService {
     public Response getPaginatedCategories(Integer page, Integer size,FilterEnum filter) {
         Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
 
-        Page<Category> categoryPage = categoryRepository.findAll(pageable);
+        Page<Category> categoryPage = categoryRepository.findByIsDeletedFalse(pageable);
 
         List<Category> categoryList = categoryPage.getContent();
 
