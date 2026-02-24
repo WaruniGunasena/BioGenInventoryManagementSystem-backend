@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
@@ -36,6 +38,21 @@ public class Supplier {
 
     private String address;
 
+    private Boolean isDeleted;
+
+    @ManyToOne
+    @JoinColumn(name = "deleted_by_id")
+    private User deletedBy;
+
+    private LocalDateTime deletedAt;
+
     @Column(name = "postal_code")
     private String postalCode;
+
+    @PreUpdate
+    protected void onUpdate() {
+        if (Boolean.TRUE.equals(this.isDeleted) && this.deletedAt == null) {
+            this.deletedAt = LocalDateTime.now();
+        }
+    }
 }

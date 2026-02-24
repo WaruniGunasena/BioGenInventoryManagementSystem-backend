@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -32,4 +34,10 @@ public class SupplierDTO {
     private String address;
 
     private String postalCode;
+
+    private Boolean isDeleted;
+
+    private UserDTO deletedBy;
+
+    private LocalDateTime deletedAt;
 }
