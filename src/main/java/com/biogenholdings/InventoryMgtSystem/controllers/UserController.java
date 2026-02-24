@@ -1,9 +1,11 @@
 package com.biogenholdings.InventoryMgtSystem.controllers;
 
+import com.biogenholdings.InventoryMgtSystem.dtos.EmpRegisterRequest;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.UserDTO;
 import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.services.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -42,6 +44,16 @@ public class UserController {
     @GetMapping("/current")
     public ResponseEntity<User> getCurrentLoggedInUser(){
         return ResponseEntity.ok(userService.getCurrentLoggedInUser());
+    }
+
+    @PostMapping("/registerEmp")
+    public ResponseEntity<Response> registerEmployee(@RequestBody @Valid EmpRegisterRequest empRegisterRequest){
+        return ResponseEntity.ok(userService.registerEmployee(empRegisterRequest));
+    }
+
+    @PutMapping("/resetTempPassword")
+    public ResponseEntity<Response> resetTempPassword(@RequestParam Long userId, @RequestParam String password){
+        return ResponseEntity.ok(userService.resetTempPassword(userId,password));
     }
 
 

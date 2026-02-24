@@ -1,6 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.models;
 
 import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
+import com.biogenholdings.InventoryMgtSystem.enums.UserStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -10,6 +11,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 @Entity
 @AllArgsConstructor
@@ -34,6 +36,8 @@ public class User {
     @NotBlank(message = "Password is required")
     private String password;
 
+    private Boolean isTempPassword;
+
     //@NotBlank(message = "PhoneNumber is required")
     @Column(name = "phone_number", nullable = true)
     private String phoneNumber;
@@ -50,6 +54,9 @@ public class User {
     private String postalCode;
 
     private String address;
+
+    @Enumerated(EnumType.STRING)
+    private UserStatus userStatus;
 
     @Column(name = "hiring_date")
     private LocalDate hiringDate;
@@ -72,14 +79,16 @@ public class User {
                 ", name='" + name + '\'' +
                 ", email='" + email + '\'' +
                 ", password='******' " +
+                ", isTempPassword=" + isTempPassword +
                 ", phoneNumber='" + phoneNumber + '\'' +
                 ", nicNumber='" + nicNumber + '\'' +
                 ", role=" + role +
                 ", province='" + province + '\'' +
                 ", postalCode='" + postalCode + '\'' +
                 ", address='" + address + '\'' +
+                ", userStatus=" + userStatus +
                 ", hiringDate=" + hiringDate +
-                ", nicPictureSize=" + (nicPicture != null ? nicPicture.length : 0) +
+                ", nicPicture=" + Arrays.toString(nicPicture) +
                 ", createdAt=" + createdAt +
                 '}';
     }
