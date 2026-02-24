@@ -1,6 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.controllers;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.EmpRegisterRequest;
+import com.biogenholdings.InventoryMgtSystem.dtos.ResetPasswordDto;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.UserDTO;
 import com.biogenholdings.InventoryMgtSystem.models.User;
@@ -52,8 +53,8 @@ public class UserController {
     }
 
     @PutMapping("/resetTempPassword")
-    public ResponseEntity<Response> resetTempPassword(@RequestParam Long userId, @RequestParam String password){
-        return ResponseEntity.ok(userService.resetTempPassword(userId,password));
+    public ResponseEntity<Response> resetTempPassword(@RequestBody @Valid ResetPasswordDto resetPasswordDto){
+        return ResponseEntity.ok(userService.resetTempPassword(resetPasswordDto));
     }
 
 

@@ -69,7 +69,7 @@ public class UserServiceImpl implements UserService {
                     .name(empRegisterRequest.getName())
                     .email(empRegisterRequest.getEmail())
                     .role(empRegisterRequest.getRole())
-                    .password(tempPassword)
+                    .password(passwordEncoder.encode(tempPassword))
                     .isTempPassword(true)
                     .userStatus(UserStatus.PENDING)
                     .nicNumber(empRegisterRequest.getNicNumber())
@@ -135,12 +135,12 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Response resetTempPassword(Long userId,String password) {
-        User user = userRepository.findById(userId)
+    public Response resetTempPassword(ResetPasswordDto resetPasswordDto) {
+        User user = userRepository.findById(resetPasswordDto.getUserId())
                 .orElseThrow(()-> new NotFoundException("User Not Found"));
 
         if(user.getIsTempPassword()){
-            user.setPassword(password);
+            user.setPassword(resetPasswordDto.getPassword());
             user.setIsTempPassword(false);
             user.setUserStatus(UserStatus.ACTIVE);
         }

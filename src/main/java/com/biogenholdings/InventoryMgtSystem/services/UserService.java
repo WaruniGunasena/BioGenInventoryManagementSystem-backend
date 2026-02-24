@@ -21,6 +21,6 @@ public interface UserService {
 
     User getCurrentLoggedInUser();
 
-    Response resetTempPassword(Long userId,String password);
+    Response resetTempPassword(ResetPasswordDto resetPasswordDto);
 
 }
