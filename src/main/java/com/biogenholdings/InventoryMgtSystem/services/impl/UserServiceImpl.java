@@ -140,9 +140,11 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(()-> new NotFoundException("User Not Found"));
 
         if(user.getIsTempPassword()){
-            user.setPassword(resetPasswordDto.getPassword());
+            user.setPassword(passwordEncoder.encode(resetPasswordDto.getPassword()));
             user.setIsTempPassword(false);
-            user.setUserStatus(UserStatus.ACTIVE);
+            if(user.getUserStatus() != UserStatus.ACTIVE) {
+                user.setUserStatus(UserStatus.ACTIVE);
+            }
         }
 
         userRepository.save(user);
@@ -151,6 +153,27 @@ public class UserServiceImpl implements UserService {
                 .message("Password Changed Sucessfully")
                 .status(200)
                 .build();
+    }
+
+    @Override
+    public Response generateTempPasswordForForgetPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("User not Found"));
+
+        String tempPassword = UUID.randomUUID().toString().substring(0, 8);
+
+        user.setPassword(passwordEncoder.encode(tempPassword));
+        user.setIsTempPassword(true);
+
+        userRepository.save(user);
+
+        emailService.sendEmployeeCredentials(email,tempPassword);
+
+        return Response.builder()
+                .status(200)
+                .message("Temp password generated")
+                .build();
+
     }
 
     @Override

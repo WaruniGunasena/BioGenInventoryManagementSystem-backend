@@ -23,4 +23,7 @@ public interface UserService {
 
     Response resetTempPassword(ResetPasswordDto resetPasswordDto);
 
+
+    Response generateTempPasswordForForgetPassword(String email);
+
 }

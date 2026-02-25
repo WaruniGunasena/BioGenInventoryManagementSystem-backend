@@ -11,8 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ResetPasswordDto {
 
-    @NotNull(message = "User ID can not be blank")
+    @NotNull(message = "UserId can not be Null")
     private Long userId;
+
 
     @NotBlank(message = "Password can not be blank")
     private String password;

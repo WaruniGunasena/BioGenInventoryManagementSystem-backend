@@ -57,6 +57,13 @@ public class UserController {
         return ResponseEntity.ok(userService.resetTempPassword(resetPasswordDto));
     }
 
+    @PostMapping("/forgetPassword/{email:.+}")
+    public ResponseEntity<Response> generateTempPasswordForForgetPassword(@PathVariable String email){
+        return ResponseEntity.ok(userService.generateTempPasswordForForgetPassword(email));
+    }
+
+
+
 
 
 }
