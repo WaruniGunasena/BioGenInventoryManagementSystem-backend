@@ -150,7 +150,7 @@ public class UserServiceImpl implements UserService {
         userRepository.save(user);
 
         return Response.builder()
-                .message("Password Changed Sucessfully")
+                .message("Password Changed Successfully")
                 .status(200)
                 .build();
     }
