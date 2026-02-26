@@ -14,20 +14,16 @@ import java.util.List;
 
 public class Response {
 
-    //generic
     private int status;
     private String message;
 
-    //login
     private String token;
     private UserRole role;
     private String expirationTime;
 
-    //for pagination
     private Integer totalPages;
     private Long totalElements;
 
-    //data output optionals
     private UserDTO user;
     private List<UserDTO> users;
 
@@ -42,6 +38,9 @@ public class Response {
 
     private SaleDTO sale;
     private List<SaleDTO> sales;
+
+    private GRNResponseDTO grn;
+    private List<GRNResponseDTO> grnList;
 
     private final LocalDateTime timestamp = LocalDateTime.now();
 
