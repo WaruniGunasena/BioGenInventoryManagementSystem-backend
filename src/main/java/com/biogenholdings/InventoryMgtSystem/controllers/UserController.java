@@ -1,9 +1,12 @@
 package com.biogenholdings.InventoryMgtSystem.controllers;
 
+import com.biogenholdings.InventoryMgtSystem.dtos.EmpRegisterRequest;
+import com.biogenholdings.InventoryMgtSystem.dtos.ResetPasswordDto;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.UserDTO;
 import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.services.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,6 +46,23 @@ public class UserController {
     public ResponseEntity<User> getCurrentLoggedInUser(){
         return ResponseEntity.ok(userService.getCurrentLoggedInUser());
     }
+
+    @PostMapping("/registerEmp")
+    public ResponseEntity<Response> registerEmployee(@RequestBody @Valid EmpRegisterRequest empRegisterRequest){
+        return ResponseEntity.ok(userService.registerEmployee(empRegisterRequest));
+    }
+
+    @PutMapping("/resetTempPassword")
+    public ResponseEntity<Response> resetTempPassword(@RequestBody @Valid ResetPasswordDto resetPasswordDto){
+        return ResponseEntity.ok(userService.resetTempPassword(resetPasswordDto));
+    }
+
+    @PostMapping("/forgetPassword/{email:.+}")
+    public ResponseEntity<Response> generateTempPasswordForForgetPassword(@PathVariable String email){
+        return ResponseEntity.ok(userService.generateTempPasswordForForgetPassword(email));
+    }
+
+
 
 
 
