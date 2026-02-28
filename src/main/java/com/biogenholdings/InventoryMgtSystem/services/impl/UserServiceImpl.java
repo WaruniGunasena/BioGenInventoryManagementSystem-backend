@@ -1,10 +1,8 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
 
-import com.biogenholdings.InventoryMgtSystem.dtos.LoginRequest;
-import com.biogenholdings.InventoryMgtSystem.dtos.RegisterRequest;
-import com.biogenholdings.InventoryMgtSystem.dtos.Response;
-import com.biogenholdings.InventoryMgtSystem.dtos.UserDTO;
+import com.biogenholdings.InventoryMgtSystem.dtos.*;
 import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
+import com.biogenholdings.InventoryMgtSystem.enums.UserStatus;
 import com.biogenholdings.InventoryMgtSystem.exceptions.InvalidCredentialsException;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.User;
@@ -16,12 +14,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +33,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
     private final JWTUtils jwtUtils;
+    private final EmailServiceImpl emailService;
 
     @Override
     public Response registerUser(RegisterRequest registerRequest) {
@@ -57,6 +58,36 @@ public class UserServiceImpl implements UserService {
                 .message("User was successfully registered")
                 .build();
     }
+
+    @Override
+//    @PreAuthorize("hasAny('ADMIN')")
+    public Response registerEmployee(EmpRegisterRequest empRegisterRequest) {
+
+        String tempPassword = UUID.randomUUID().toString().substring(0, 8);
+
+            User userToSave = User.builder()
+                    .name(empRegisterRequest.getName())
+                    .email(empRegisterRequest.getEmail())
+                    .role(empRegisterRequest.getRole())
+                    .password(passwordEncoder.encode(tempPassword))
+                    .isTempPassword(true)
+                    .userStatus(UserStatus.PENDING)
+                    .nicNumber(empRegisterRequest.getNicNumber())
+                    .address(empRegisterRequest.getAddress())
+                    .build();
+
+            userRepository.save(userToSave);
+
+            emailService.sendEmployeeCredentials(
+                    userToSave.getEmail(),
+                    tempPassword
+            );
+
+            return Response.builder()
+                    .status(200)
+                    .message("User was successfully registered")
+                    .build();
+        }
 
     @Override
     public Response loginUser(LoginRequest loginRequest) {
@@ -101,6 +132,48 @@ public class UserServiceImpl implements UserService {
         String email = authentication.getName();
 
         return userRepository.findByEmail(email).orElseThrow(() -> new NotFoundException("User Not Found"));
+    }
+
+    @Override
+    public Response resetTempPassword(ResetPasswordDto resetPasswordDto) {
+        User user = userRepository.findById(resetPasswordDto.getUserId())
+                .orElseThrow(()-> new NotFoundException("User Not Found"));
+
+        if(user.getIsTempPassword()){
+            user.setPassword(passwordEncoder.encode(resetPasswordDto.getPassword()));
+            user.setIsTempPassword(false);
+            if(user.getUserStatus() != UserStatus.ACTIVE) {
+                user.setUserStatus(UserStatus.ACTIVE);
+            }
+        }
+
+        userRepository.save(user);
+
+        return Response.builder()
+                .message("Password Changed Successfully")
+                .status(200)
+                .build();
+    }
+
+    @Override
+    public Response generateTempPasswordForForgetPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("User not Found"));
+
+        String tempPassword = UUID.randomUUID().toString().substring(0, 8);
+
+        user.setPassword(passwordEncoder.encode(tempPassword));
+        user.setIsTempPassword(true);
+
+        userRepository.save(user);
+
+        emailService.sendEmployeeCredentials(email,tempPassword);
+
+        return Response.builder()
+                .status(200)
+                .message("Temp password generated")
+                .build();
+
     }
 
     @Override

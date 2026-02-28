@@ -10,7 +10,7 @@ import java.util.List;
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     List<Category> findByNameContainingOrDescriptionContaining(String name, String description);
-    List<Category> findByisDeletedFalse();
+    List<Category> findByIsDeletedFalse();
     Page<Category> findByIsDeletedFalse(Pageable pageable);
 
 }

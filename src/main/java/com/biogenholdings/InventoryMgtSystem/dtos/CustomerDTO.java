@@ -4,42 +4,33 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Data
-@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
+public class CustomerDTO {
 
-public class SupplierDTO {
+    private Long Id;
 
-    private Long id;
-
-    @NotBlank(message = "Name is required")
+    @NotBlank(message = "name is required")
     private String name;
 
-    private String contactPerson;
-
-    @NotBlank(message = "PhoneNumber is required")
-    private String phoneNumber;
-
-    private String creditPeriod;
-
+    @NotBlank(message = "email is required")
     private String email;
+
+    private String contact_No;
 
     private String address;
 
+    private String province;
+
     private String postalCode;
 
-    private Boolean isDeleted;
-
-    private UserDTO deletedBy;
-
-    private LocalDateTime deletedAt;
+    private LocalDateTime createdAt;
 }

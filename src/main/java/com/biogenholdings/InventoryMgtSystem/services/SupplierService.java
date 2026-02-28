@@ -16,6 +16,8 @@ public interface SupplierService {
 
     Response deleteSupplier( Long id);
 
+    Response softDeleteSupplier(Long id, Long userId);
+
     Response searchSupplier(String searchKey);
 
 }

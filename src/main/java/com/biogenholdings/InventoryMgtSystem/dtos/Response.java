@@ -41,6 +41,8 @@ public class Response {
 
     private GRNResponseDTO grn;
     private List<GRNResponseDTO> grnList;
+    private CustomerDTO customer;
+    private List<CustomerDTO> customers;
 
     private final LocalDateTime timestamp = LocalDateTime.now();
 

@@ -45,6 +45,12 @@ public class SupplierController {
         return ResponseEntity.ok(supplierService.deleteSupplier(id));
     }
 
+    @PutMapping("/softDelete")
+    @PreAuthorize("hasAnyAuthority('ADMIN','INVENTORY_MANAGER')")
+    public ResponseEntity<Response> softDeleteSupplier(@RequestParam Long id, @RequestParam Long userId){
+        return ResponseEntity.ok(supplierService.softDeleteSupplier(id,userId));
+    }
+
     @GetMapping("/search")
     public ResponseEntity<Response> searchSupplier(@RequestParam String searchKey){
         return ResponseEntity.ok(supplierService.searchSupplier(searchKey));
