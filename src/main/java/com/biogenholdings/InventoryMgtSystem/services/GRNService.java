@@ -11,4 +11,8 @@ public interface GRNService {
 
     Response getGRNById(Long id);
 
+    Response getGRNBySupplier(Long supplierId);
+
+    Response getPaginatedGRNs(int page, int size);
+
 }

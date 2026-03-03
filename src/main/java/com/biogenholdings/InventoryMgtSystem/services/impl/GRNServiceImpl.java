@@ -8,6 +8,10 @@ import com.biogenholdings.InventoryMgtSystem.services.GRNService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -36,6 +40,7 @@ public class GRNServiceImpl implements GRNService {
                 .invoiceNumber(dto.getInvoiceNumber())
                 .grnDate(dto.getDate())
                 .grandTotal(dto.getGrandTotal())
+                .userId(dto.getUserId())
                 .supplier(supplier)
                 .build();
 
@@ -48,6 +53,7 @@ public class GRNServiceImpl implements GRNService {
                             "Product Not Found: " + itemDTO.getProductId()
                     ));
 
+            /* ---------- Save GRN Item (History Layer) ---------- */
             GRNItem grnItem = GRNItem.builder()
                     .grn(grn)
                     .product(product)
@@ -62,26 +68,41 @@ public class GRNServiceImpl implements GRNService {
             grn.getItems().add(grnItem);
             grnItemRepository.save(grnItem);
 
+            /* ---------- Stock Calculation (Live Layer) ---------- */
+
             BigDecimal purchasePrice = itemDTO.getPurchasePrice();
-            BigDecimal sellingPrice = purchasePrice.multiply(BigDecimal.valueOf(1.10));
+
+            // Pricing rule: 10% margin
+            BigDecimal newSellingPrice = purchasePrice.multiply(BigDecimal.valueOf(1.10));
 
             ProductStock stock = productStockRepository
-                    .findByProductIdAndBatchNumber(product.getId(), itemDTO.getBatchNumber())
+                    .findByProductId(product.getId())
                     .orElse(null);
 
             if (stock != null) {
-                stock.setQuantity(stock.getQuantity() + itemDTO.getQuantity());
+
+                /* Quantity aggregation */
+                int updatedQty = stock.getQuantity() + itemDTO.getQuantity();
+                stock.setQuantity(updatedQty);
+
+                /* Selling price rule: only increase */
+                if (stock.getSellingPrice() == null ||
+                        newSellingPrice.compareTo(stock.getSellingPrice()) > 0) {
+
+                    stock.setSellingPrice(newSellingPrice);
+                }
+
                 productStockRepository.save(stock);
+
             } else {
+
+                /* First stock record for product */
                 ProductStock newStock = ProductStock.builder()
                         .product(product)
-                        .batchNumber(itemDTO.getBatchNumber())
-                        .mfgDate(itemDTO.getMfgDate())
-                        .expDate(itemDTO.getExpDate())
                         .quantity(itemDTO.getQuantity())
-                        .purchasePrice(itemDTO.getPurchasePrice())
-                        .sellingPrice(sellingPrice)
+                        .sellingPrice(newSellingPrice)
                         .build();
+
                 productStockRepository.save(newStock);
             }
         }
@@ -94,6 +115,8 @@ public class GRNServiceImpl implements GRNService {
                 .grn(grnResponseDTO)
                 .build();
     }
+
+    /* ---------------- Read Methods ---------------- */
 
     @Override
     public Response getAllGRNs() {
@@ -138,6 +161,30 @@ public class GRNServiceImpl implements GRNService {
                 .build();
     }
 
+    @Override
+    public Response getPaginatedGRNs(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+
+        Page<GRN> grnPage = grnRepository.findAll(pageable);
+
+        List<GRNResponseDTO> grnDTOList = grnPage
+                .getContent()
+                .stream()
+                .map(this::mapToDTO)
+                .toList();
+
+        return Response.builder()
+                .status(200)
+                .message("Paginated GRNs fetched successfully")
+                .grnList(grnDTOList)
+                .currentPage(grnPage.getNumber())
+                .totalItems(grnPage.getTotalElements())
+                .totalPages(grnPage.getTotalPages())
+                .build();
+    }
+
+    /* ---------------- Mapping ---------------- */
+
     private GRNResponseDTO mapToDTO(GRN grn) {
         return GRNResponseDTO.builder()
                 .id(grn.getId())
@@ -150,24 +197,25 @@ public class GRNServiceImpl implements GRNService {
                         .name(grn.getSupplier().getName())
                         .phoneNumber(grn.getSupplier().getPhoneNumber())
                         .email(grn.getSupplier().getEmail())
+                        .address(grn.getSupplier().getAddress())
                         .build())
                 .items(grn.getItems() == null ? List.of() :
                         grn.getItems().stream()
-                        .map(item -> GRNItemResponseDTO.builder()
-                                .id(item.getId())
-                                .product(ProductDTO.builder()
-                                        .id(item.getProduct().getId())
-                                        .name(item.getProduct().getName())
-                                        .unit(item.getProduct().getUnit())
+                                .map(item -> GRNItemResponseDTO.builder()
+                                        .id(item.getId())
+                                        .product(ProductDTO.builder()
+                                                .id(item.getProduct().getId())
+                                                .name(item.getProduct().getName())
+                                                .unit(item.getProduct().getUnit())
+                                                .build())
+                                        .batchNumber(item.getBatchNumber())
+                                        .mfgDate(item.getMfgDate())
+                                        .expDate(item.getExpDate())
+                                        .purchasePrice(item.getPurchasePrice())
+                                        .quantity(item.getQuantity())
+                                        .totalAmount(item.getTotalAmount())
                                         .build())
-                                .batchNumber(item.getBatchNumber())
-                                .mfgDate(item.getMfgDate())
-                                .expDate(item.getExpDate())
-                                .purchasePrice(item.getPurchasePrice())
-                                .quantity(item.getQuantity())
-                                .totalAmount(item.getTotalAmount())
-                                .build())
-                        .toList())
+                                .toList())
                 .build();
     }
 

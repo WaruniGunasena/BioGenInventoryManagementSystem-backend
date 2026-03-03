@@ -47,4 +47,7 @@ public class GRN {
     protected void onCreate(){
         this.createdAt = LocalDateTime.now();
     }
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 }
