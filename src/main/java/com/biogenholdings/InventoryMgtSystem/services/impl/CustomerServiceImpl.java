@@ -4,7 +4,6 @@ import com.biogenholdings.InventoryMgtSystem.dtos.CustomerDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
-import com.biogenholdings.InventoryMgtSystem.exceptions.UserExistException;
 import com.biogenholdings.InventoryMgtSystem.models.Customer;
 import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.repositories.CustomerRepository;
@@ -33,8 +32,13 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public Response addCustomer(CustomerDTO customerDTO) {
-        Customer customer = customerRepository.findByEmail(customerDTO.getEmail())
-                .orElseThrow(()-> new UserExistException("Customer Already Exists"));
+
+        if(customerRepository.existsByEmail(customerDTO.getEmail())){
+            return Response.builder()
+                    .status(409)
+                    .message("Email already Exists")
+                    .build();
+        }
 
         Customer customerToSave = Customer.builder()
                 .email(customerDTO.getEmail())
@@ -94,6 +98,8 @@ public class CustomerServiceImpl implements CustomerService {
                 .status(200)
                 .message("Suucess")
                 .customers(customerDTOList)
+                .totalPages(customerPage.getTotalPages())
+                .totalElements(customerPage.getTotalElements())
                 .build();
     }
 
@@ -172,6 +178,11 @@ public class CustomerServiceImpl implements CustomerService {
                 .message("Successful")
                 .customers(customerDTOList)
                 .build();
+    }
+
+    @Override
+    public Boolean getCustomerEmailAlreadyExists(String email) {
+        return customerRepository.existsByEmail(email);
     }
 
     private Sort getSortByFilter(FilterEnum filter) {

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/customer")
+@RequestMapping("/api/customers")
 public class CustomerController {
 
     private  final CustomerService customerService;
@@ -51,5 +51,10 @@ public class CustomerController {
     @GetMapping("/search")
     public ResponseEntity<Response> searchCustomer(@RequestParam String name){
         return ResponseEntity.ok(customerService.searchCustomer(name));
+    }
+
+    @GetMapping("/emailExists")
+    public Boolean getCustomerEmailAlreadyExists(@RequestParam String email){
+        return customerService.getCustomerEmailAlreadyExists(email);
     }
 }
