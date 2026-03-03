@@ -1,11 +1,66 @@
 package com.biogenholdings.InventoryMgtSystem.repositories;
 
+import com.biogenholdings.InventoryMgtSystem.dtos.StockResponseDTO;
 import com.biogenholdings.InventoryMgtSystem.models.ProductStock;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductStockRepository extends JpaRepository<ProductStock, Long> {
 
-    Optional<ProductStock> findByProductIdAndBatchNumber(Long productId, String batchNumber);
+    Optional<ProductStock> findByProductId(Long productId);
+
+    // Search by product name and return DTO directly
+    @Query("""
+        SELECT new com.biogenholdings.InventoryMgtSystem.dtos.StockResponseDTO(
+            ps.id,
+            p.id,
+            p.name,
+            ps.quantity,
+            ps.sellingPrice,
+            p.minimumStockLevel,
+            p.reorderLevel
+        )
+        FROM ProductStock ps
+        JOIN ps.product p
+        WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :searchKey, '%'))
+    """)
+    List<StockResponseDTO> searchStockByName(@Param("searchKey") String searchKey);
+
+    // Paginated stocks with dynamic sorting
+    @Query("""
+        SELECT new com.biogenholdings.InventoryMgtSystem.dtos.StockResponseDTO(
+            ps.id,
+            p.id,
+            p.name,
+            ps.quantity,
+            ps.sellingPrice,
+            p.minimumStockLevel,
+            p.reorderLevel
+        )
+        FROM ProductStock ps
+        JOIN ps.product p
+    """)
+    Page<StockResponseDTO> getPaginatedStockData(Pageable pageable);
+
+    // All stocks
+    @Query("""
+        SELECT new com.biogenholdings.InventoryMgtSystem.dtos.StockResponseDTO(
+            ps.id,
+            p.id,
+            p.name,
+            ps.quantity,
+            ps.sellingPrice,
+            p.minimumStockLevel,
+            p.reorderLevel
+        )
+        FROM ProductStock ps
+        JOIN ps.product p
+    """)
+    List<StockResponseDTO> getAllStockData();
 }

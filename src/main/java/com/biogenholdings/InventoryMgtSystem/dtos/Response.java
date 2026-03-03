@@ -44,6 +44,11 @@ public class Response {
     private CustomerDTO customer;
     private List<CustomerDTO> customers;
 
+    private List<StockResponseDTO> productStocks;
+
+    private Integer currentPage;
+    private Long totalItems;
+
     private final LocalDateTime timestamp = LocalDateTime.now();
 
 }

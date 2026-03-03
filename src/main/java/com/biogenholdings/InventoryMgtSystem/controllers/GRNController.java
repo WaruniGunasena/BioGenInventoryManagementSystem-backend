@@ -32,4 +32,14 @@ public class GRNController {
         Response response = grnService.getGRNById(id);
         return ResponseEntity.status(response.getStatus()).body(response);
     }
+
+    @GetMapping
+    public ResponseEntity<Response> getPaginatedGRNs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "8") int size) {
+
+        Response response = grnService.getPaginatedGRNs(page, size);
+
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
 }

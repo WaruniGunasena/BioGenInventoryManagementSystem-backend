@@ -12,5 +12,6 @@ public class GRNRequestDTO {
     private LocalDate date;
     private String invoiceNumber;
     private BigDecimal grandTotal;
+    private Long userId;
     private List<GRNItemDTO> items;
 }
