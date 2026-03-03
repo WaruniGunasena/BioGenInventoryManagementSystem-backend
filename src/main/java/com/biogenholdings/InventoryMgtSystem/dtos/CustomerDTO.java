@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CustomerDTO {
 
-    private Long Id;
+    private Long id;
 
     @NotBlank(message = "name is required")
     private String name;

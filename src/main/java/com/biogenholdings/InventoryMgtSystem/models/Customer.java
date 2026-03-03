@@ -19,7 +19,7 @@ public class Customer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long Id;
+    private Long id;
 
     @NotBlank(message = "Name can not be blank")
     private String name;
@@ -49,12 +49,14 @@ public class Customer {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.isDeleted = false;
+
     }
 
     @Override
     public String toString() {
         return "Customer{" +
-                "Id=" + Id +
+                "Id=" + id +
                 ", Name='" + name + '\'' +
                 ", email='" + email + '\'' +
                 ", contact_No='" + contact_No + '\'' +

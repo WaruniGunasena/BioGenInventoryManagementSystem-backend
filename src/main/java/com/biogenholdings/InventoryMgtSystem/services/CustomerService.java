@@ -21,4 +21,6 @@ public interface CustomerService {
     Response softDeleteCustomer(Long customerId, Long userId);
 
     Response searchCustomer(String name);
+
+    Boolean getCustomerEmailAlreadyExists(String email);
 }
