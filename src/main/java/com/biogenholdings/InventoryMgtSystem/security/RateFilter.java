@@ -43,7 +43,7 @@ public class RateFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = request.getRequestURI();
 
-        if(path.contains("/login") || path.equals("/register")){
+        if(path.contains("/login") || path.contains("/register")){
 
             String ip = request.getRemoteAddr();
             Bucket bucket = resolveBucket(ip);
