@@ -158,6 +158,7 @@ public class CustomerServiceImpl implements CustomerService {
 
         customer.setDeletedBy(user);
         customer.setIsDeleted(true);
+        customer.setEmail("");
 
         customerRepository.save(customer);
 
