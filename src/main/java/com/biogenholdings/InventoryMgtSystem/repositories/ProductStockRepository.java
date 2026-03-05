@@ -30,7 +30,7 @@ public interface ProductStockRepository extends JpaRepository<ProductStock, Long
         JOIN ps.product p
         WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :searchKey, '%'))
     """)
-    List<StockResponseDTO> searchStockByName(@Param("searchKey") String searchKey);
+    Page<StockResponseDTO> searchStockByNamePaginated(Pageable pageable,@Param("searchKey") String searchKey);
 
     // Paginated stocks with dynamic sorting
     @Query("""

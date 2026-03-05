@@ -26,23 +26,24 @@ public class StockServiceImpl implements StockService {
     }
 
     @Override
-    public Response searchStock(String searchKey) {
-        List<StockResponseDTO> stockResponseDTOList =
-                productStockRepository.searchStockByName(searchKey);
+    public Response searchStock(String searchKey,Integer page, Integer size, FilterEnum filter) {
+
+        Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
+
+        Page<StockResponseDTO> stockResponseDTOList =
+                productStockRepository.searchStockByNamePaginated(pageable,searchKey);
 
         return Response.builder()
                 .status(200)
                 .message("Success")
-                .productStocks(stockResponseDTOList)
+                .productStocks(stockResponseDTOList.getContent())
                 .build();
     }
 
     @Override
     public Response getPaginatedStocks(Integer page, Integer size, FilterEnum filter) {
 
-        Sort sort = Sort.by(filter == FilterEnum.DESC ? Sort.Direction.DESC : Sort.Direction.ASC, "p.name");
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PageRequest.of(page, size, getSortByFilter(filter));
 
         Page<StockResponseDTO> stockPage =
                 productStockRepository.getPaginatedStockData(pageable);
@@ -54,5 +55,17 @@ public class StockServiceImpl implements StockService {
                 .totalPages(stockPage.getTotalPages())
                 .totalElements(stockPage.getTotalElements())
                 .build();
+    }
+
+    private Sort getSortByFilter(FilterEnum filter) {
+        if (filter == FilterEnum.DESC) {
+            return Sort.by(Sort.Direction.DESC, "p.name");
+        } else if(filter == FilterEnum.ASC) {
+            return Sort.by(Sort.Direction.ASC, "p.name");
+        } else if(filter == FilterEnum.DATE_ASC){
+            return  Sort.by(Sort.Direction.ASC,"p.createdAt");
+        }else {
+            return Sort.by(Sort.Direction.DESC, "p.createdAt");
+        }
     }
 }

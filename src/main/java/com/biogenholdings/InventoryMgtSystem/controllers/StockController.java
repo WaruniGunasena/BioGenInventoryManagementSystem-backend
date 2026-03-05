@@ -27,8 +27,11 @@ public class StockController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Response> searchStock(@RequestParam String searchKey){
-        return ResponseEntity.ok(stockService.searchStock(searchKey));
+    public ResponseEntity<Response> searchStock(@RequestParam String searchKey,
+                                                @RequestParam(defaultValue = "0") Integer page,
+                                                @RequestParam(defaultValue = "5") Integer size,
+                                                @RequestParam(defaultValue = "ASC") FilterEnum filter){
+        return ResponseEntity.ok(stockService.searchStock(searchKey,page,size,filter));
     }
 
     @GetMapping
