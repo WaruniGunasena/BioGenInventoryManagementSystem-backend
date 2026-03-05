@@ -36,15 +36,14 @@ public class Response {
     private ProductDTO product;
     private List<ProductDTO> products;
 
-    private SaleDTO sale;
-    private List<SaleDTO> sales;
-
     private GRNResponseDTO grn;
     private List<GRNResponseDTO> grnList;
     private CustomerDTO customer;
     private List<CustomerDTO> customers;
 
     private List<StockResponseDTO> productStocks;
+
+    private List<SalesOrderResponseDTO> salesOrderList;
 
     private Integer currentPage;
     private Long totalItems;

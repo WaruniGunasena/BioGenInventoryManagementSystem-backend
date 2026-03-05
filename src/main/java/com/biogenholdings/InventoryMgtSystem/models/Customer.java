@@ -37,6 +37,8 @@ public class Customer {
     @Column(name = "postal_code")
     private String postalCode;
 
+    private String creditPeriod;
+
     private Boolean isDeleted;
 
     @ManyToOne
