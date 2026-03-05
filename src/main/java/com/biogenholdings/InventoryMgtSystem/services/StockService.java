@@ -10,7 +10,7 @@ public interface StockService {
 
     List<StockResponseDTO> getAllStocks();
 
-    Response searchStock(String searchKey);
+    Response searchStock(String searchKey,Integer page, Integer size, FilterEnum filter);
 
     Response getPaginatedStocks(Integer page, Integer size, FilterEnum filter);
 }
