@@ -43,7 +43,7 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.softDeleteCustomer(customerId,userId));
     }
 
-    @PutMapping("/update/{id}")
+    @PutMapping("/update/{customerId}")
     public ResponseEntity<Response> updateCustomer(@PathVariable Long customerId,@RequestBody CustomerDTO customerDTO){
         return ResponseEntity.ok(customerService.updateCustomer(customerId,customerDTO));
     }
