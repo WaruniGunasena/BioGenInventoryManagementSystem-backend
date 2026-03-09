@@ -1,9 +1,11 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.*;
+import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
 import com.biogenholdings.InventoryMgtSystem.models.*;
 import com.biogenholdings.InventoryMgtSystem.repositories.*;
 import com.biogenholdings.InventoryMgtSystem.services.SalesOrderService;
+import com.biogenholdings.InventoryMgtSystem.services.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,6 +31,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final ProductStockRepository productStockRepository;
     private final CustomerRepository customerRepository;
     private final InvoiceSequenceRepository invoiceSequenceRepository;
+    private final UserService userService;
 
     @Override
     public String generateInvoiceNumber() {
@@ -124,7 +127,15 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
 
-        Page<SalesOrder> salesPage = salesOrderRepository.findAll(pageable);
+        User currentUser = userService.getCurrentLoggedInUser();
+
+        Page<SalesOrder> salesPage;
+
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            salesPage = salesOrderRepository.findAll(pageable);
+        } else {
+            salesPage = salesOrderRepository.findByUser_Id(currentUser.getId(), pageable);
+        }
 
         List<SalesOrderResponseDTO> dtoList = salesPage
                 .getContent()
@@ -134,7 +145,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         return Response.builder()
                 .status(200)
-                .message("Paginated Sales Orders fetched successfully")
+                .message("Sales Orders fetched successfully")
                 .salesOrderList(dtoList)
                 .currentPage(salesPage.getNumber())
                 .totalItems(salesPage.getTotalElements())
@@ -148,7 +159,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .id(order.getId())
                 .invoiceNumber(order.getInvoiceNumber())
                 .invoiceDate(order.getInvoiceDate())
-                .creditTerm(order.getCreditTerm())
+                .creditTerm(order.getCustomer().getCreditPeriod())
                 .grandTotal(order.getGrandTotal())
 
                 .customer(CustomerDTO.builder()
