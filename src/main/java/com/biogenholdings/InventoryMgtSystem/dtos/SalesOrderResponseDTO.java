@@ -18,7 +18,7 @@ public class SalesOrderResponseDTO {
     private Long id;
     private String invoiceNumber;
     private LocalDate invoiceDate;
-    private Integer creditTerm;
+    private String creditTerm;
 
     private BigDecimal discountPercent;
     private BigDecimal discountAmount;
