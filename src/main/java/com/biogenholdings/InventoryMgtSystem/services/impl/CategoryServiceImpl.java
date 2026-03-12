@@ -48,7 +48,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Response getAllCategory() {
 
-        List<Category> categories = categoryRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+        List<Category> categories = categoryRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.DESC, "id"));
 
         categories.forEach(category -> category.setProducts(null));
 

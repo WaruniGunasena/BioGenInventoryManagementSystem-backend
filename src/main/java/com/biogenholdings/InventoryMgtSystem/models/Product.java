@@ -41,6 +41,21 @@ public class Product {
     @Column(name = "image_url")
     private String imageUrl;
 
+    private Boolean isDeleted;
+
+    @ManyToOne
+    @JoinColumn(name = "deleted_by_id")
+    private User deletedBy;
+
+    private LocalDateTime deletedAt;
+
+    @PreUpdate
+    protected void onUpdate() {
+        if (Boolean.TRUE.equals(this.isDeleted) && this.deletedAt == null) {
+            this.deletedAt = LocalDateTime.now();
+        }
+    }
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     @PrePersist
@@ -62,6 +77,9 @@ public class Product {
                 ", description='" + description + '\'' +
                 ", imageUrl='" + imageUrl + '\'' +
                 ", createdAt=" + createdAt +
+                ", isDeleted=" + isDeleted +
+                ", deletedBy=" + deletedBy +
+                ", deletedAt=" + deletedAt +
                 '}';
     }
 }

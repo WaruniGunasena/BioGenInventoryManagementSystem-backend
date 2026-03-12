@@ -39,10 +39,10 @@ public class User {
     private Boolean isTempPassword;
 
     //@NotBlank(message = "PhoneNumber is required")
-    @Column(name = "phone_number", nullable = true)
+    @Column(name = "phone_number")
     private String phoneNumber;
 
-    @Column(name = "nic_number", nullable = true)
+    @Column(name = "nic_number")
     private String nicNumber;
 
     @Enumerated(EnumType.STRING)
@@ -64,6 +64,21 @@ public class User {
     @Lob
     @Column(name = "nic_copy")
     private byte[] nicPicture;
+
+    private Boolean isDeleted;
+
+    @ManyToOne
+    @JoinColumn(name = "deleted_by_id")
+    private User deletedBy;
+
+    private LocalDateTime deletedAt;
+
+    @PreUpdate
+    protected void onUpdate() {
+        if (Boolean.TRUE.equals(this.isDeleted) && this.deletedAt == null) {
+            this.deletedAt = LocalDateTime.now();
+        }
+    }
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -90,6 +105,9 @@ public class User {
                 ", hiringDate=" + hiringDate +
                 ", nicPicture=" + Arrays.toString(nicPicture) +
                 ", createdAt=" + createdAt +
+                ", isDeleted=" + isDeleted +
+                ", deletedBy=" + deletedBy +
+                ", deletedAt=" + deletedAt +
                 '}';
     }
 }

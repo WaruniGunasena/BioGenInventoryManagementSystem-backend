@@ -37,4 +37,10 @@ public class ProductDTO {
 
     private LocalDateTime createdAt;
 
+    private Boolean isDeleted;
+
+    private UserDTO deletedBy;
+
+    private LocalDateTime deletedAt;
+
 }

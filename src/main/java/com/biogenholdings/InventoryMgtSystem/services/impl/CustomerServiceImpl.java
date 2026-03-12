@@ -74,7 +74,7 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public Response getAllCustomers() {
-        List<Customer> customers = customerRepository.findAll();
+        List<Customer> customers = customerRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.DESC, "id"));
 
         List<CustomerDTO> customerDTOS = modelMapper.map(customers, new TypeToken<List<CustomerDTO>>() {}.getType());
 

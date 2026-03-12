@@ -4,6 +4,7 @@ import com.biogenholdings.InventoryMgtSystem.dtos.EmpRegisterRequest;
 import com.biogenholdings.InventoryMgtSystem.dtos.ResetPasswordDto;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.UserDTO;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.services.UserService;
 import jakarta.validation.Valid;
@@ -60,6 +61,24 @@ public class UserController {
     @PostMapping("/forgetPassword/{email:.+}")
     public ResponseEntity<Response> generateTempPasswordForForgetPassword(@PathVariable String email){
         return ResponseEntity.ok(userService.generateTempPasswordForForgetPassword(email));
+    }
+
+    @PutMapping("/softDelete")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
+    public ResponseEntity<Response> softDeleteEmployee(@RequestParam Long id, @RequestParam Long userId){
+        return ResponseEntity.ok(userService.softDeleteEmployee(id,userId));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<Response> searchEmployee(@RequestParam String searchKey){
+        return ResponseEntity.ok(userService.searchEmployee(searchKey));
+    }
+
+    @GetMapping
+    public ResponseEntity<Response> getPaginatedEmployeeResults(@RequestParam(defaultValue = "0") Integer page,
+                                                                @RequestParam(defaultValue = "5") Integer size,
+                                                                @RequestParam(defaultValue = "ASC") FilterEnum filter){
+        return ResponseEntity.ok(userService.getPaginatedEmployees(page,size,filter));
     }
 
 

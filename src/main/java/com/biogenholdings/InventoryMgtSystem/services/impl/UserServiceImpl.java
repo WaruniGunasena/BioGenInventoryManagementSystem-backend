@@ -1,6 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.*;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
 import com.biogenholdings.InventoryMgtSystem.enums.UserStatus;
 import com.biogenholdings.InventoryMgtSystem.exceptions.InvalidCredentialsException;
@@ -13,8 +14,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -74,6 +77,7 @@ public class UserServiceImpl implements UserService {
                     .userStatus(UserStatus.PENDING)
                     .nicNumber(empRegisterRequest.getNicNumber())
                     .address(empRegisterRequest.getAddress())
+                    .isDeleted(false)
                     .build();
 
             userRepository.save(userToSave);
@@ -113,7 +117,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public Response getAllUsers() {
 
-        List<User> users = userRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+        List<User> users = userRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.DESC, "id"));
 
         List<UserDTO> userDTOS = modelMapper.map(users, new TypeToken<List<UserDTO>>() {}.getType());
 
@@ -174,6 +178,68 @@ public class UserServiceImpl implements UserService {
                 .message("Temp password generated")
                 .build();
 
+    }
+
+    @Override
+    public Response softDeleteEmployee(Long id, Long userId) {
+
+        User employee = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Employee Not Found"));
+
+        User admin = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User Not Found"));
+
+        employee.setIsDeleted(true);
+        employee.setDeletedBy(admin);
+
+        userRepository.save(employee);
+
+        return Response.builder()
+                .status(204)
+                .message("Employee Deleted Successfully")
+                .build();
+    }
+
+    @Override
+    public Response searchEmployee(String searchKey) {
+
+        List<User> users = userRepository.findByNameContaining(searchKey);
+
+        List<UserDTO> userDTOList = modelMapper.map(users, new TypeToken<List<UserDTO>>() {}.getType());
+
+        return Response.builder()
+                .status(200)
+                .message("success")
+                .users(userDTOList)
+                .build();
+    }
+
+    @Override
+    public Response getPaginatedEmployees(Integer page, Integer size, FilterEnum filter) {
+        Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
+
+        Page<User> userPage = userRepository.findByIsDeletedFalse(pageable);
+
+        List<User> userList = userPage.getContent();
+
+        List<UserDTO> userDTOList = modelMapper.map(userList, new TypeToken<List<UserDTO>>() {}.getType());
+
+        return Response.builder()
+                .status(200)
+                .message("Success")
+                .users(userDTOList)
+                .totalPages(userPage.getTotalPages())
+                .totalElements(userPage.getTotalElements())
+                .build();
+    }
+
+    private Sort getSortByFilter(FilterEnum filter) {
+        log.info(filter.toString());
+        if (filter == FilterEnum.DESC) {
+            return Sort.by(Sort.Direction.DESC, "name");
+        } else {
+            return Sort.by(Sort.Direction.ASC, "name");
+        }
     }
 
     @Override

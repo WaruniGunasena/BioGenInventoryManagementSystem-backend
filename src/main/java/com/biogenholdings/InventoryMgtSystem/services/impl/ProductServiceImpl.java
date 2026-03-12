@@ -6,8 +6,10 @@ import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.Category;
 import com.biogenholdings.InventoryMgtSystem.models.Product;
+import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.repositories.CategoryRepository;
 import com.biogenholdings.InventoryMgtSystem.repositories.ProductRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.UserRepository;
 import com.biogenholdings.InventoryMgtSystem.services.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,7 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final UserRepository userRepository;
     private final ModelMapper modelMapper;
 
     private static final String IMAGE_DIRECTORY = System.getProperty("user.dir") + "/product-images/";
@@ -62,6 +65,7 @@ public class ProductServiceImpl implements ProductService {
             String imagePath = saveImage(imageFile);
             productToSave.setImageUrl(imagePath);
         }
+        productToSave.setIsDeleted(false);
 
         productRepository.save(productToSave);
 
@@ -108,7 +112,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Response getAllProducts() {
-        List<Product> productList = productRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+        List<Product> productList = productRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.DESC, "id"));
         List<ProductDTO> productDTOList = modelMapper.map(productList, new TypeToken<List<ProductDTO>>() {}.getType());
 
         return Response.builder()
@@ -140,6 +144,24 @@ public class ProductServiceImpl implements ProductService {
         return Response.builder()
                 .status(200)
                 .message("Product deleted successfully")
+                .build();
+    }
+
+    @Override
+    public Response softDeleteProduct(Long id, Long userId) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Product not Found"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(()-> new NotFoundException("User Not Found"));
+
+        product.setIsDeleted(true);
+        product.setDeletedBy(user);
+        productRepository.save(product);
+
+        return Response.builder()
+                .status(204)
+                .message("Product Deleted Successfully")
                 .build();
     }
 
@@ -210,7 +232,7 @@ public class ProductServiceImpl implements ProductService {
     public Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter) {
         Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
 
-        Page<Product> productPage = productRepository.findAll(pageable);
+        Page<Product> productPage = productRepository.findByIsDeletedFalse(pageable);
 
         List<Product> productList = productPage.getContent();
 

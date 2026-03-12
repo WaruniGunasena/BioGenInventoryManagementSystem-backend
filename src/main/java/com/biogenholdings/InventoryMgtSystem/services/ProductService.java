@@ -17,6 +17,8 @@ public interface ProductService {
 
     Response deleteProduct(Long id);
 
+    Response softDeleteProduct(Long id, Long userId);
+
     Response searchProduct(String searchKey);
 
     Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter);

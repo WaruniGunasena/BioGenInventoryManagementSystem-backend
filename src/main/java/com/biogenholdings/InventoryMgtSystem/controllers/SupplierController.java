@@ -2,6 +2,7 @@ package com.biogenholdings.InventoryMgtSystem.controllers;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.SupplierDTO;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.services.SupplierService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +55,13 @@ public class SupplierController {
     @GetMapping("/search")
     public ResponseEntity<Response> searchSupplier(@RequestParam String searchKey){
         return ResponseEntity.ok(supplierService.searchSupplier(searchKey));
+    }
+
+    @GetMapping
+    public ResponseEntity<Response> getPaginatedSupplierResults(@RequestParam(defaultValue = "0") Integer page,
+                                                     @RequestParam(defaultValue = "5") Integer size,
+                                                     @RequestParam(defaultValue = "ASC") FilterEnum filter){
+        return ResponseEntity.ok(supplierService.getPaginatedSuppliers(page,size,filter));
     }
 
 }
