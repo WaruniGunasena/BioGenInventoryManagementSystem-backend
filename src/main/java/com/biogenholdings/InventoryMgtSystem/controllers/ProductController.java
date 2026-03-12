@@ -81,13 +81,19 @@ public class ProductController {
         return ResponseEntity.ok(productService.deleteProduct(id));
     }
 
+    @PutMapping("/softDelete")
+    @PreAuthorize(("hasAnyAuthority('ADMIN','INVENTORY_MANAGER')"))
+    public ResponseEntity<Response> softDeleteProduct(@RequestParam Long id, @RequestParam Long userId){
+        return ResponseEntity.ok(productService.softDeleteProduct(id,userId));
+    }
+
     @GetMapping("/search")
     public ResponseEntity<Response> searchProduct(@RequestParam String searchKey){
         return ResponseEntity.ok(productService.searchProduct(searchKey));
     }
 
     @GetMapping
-    public ResponseEntity<Response> paginatedResults(@RequestParam(defaultValue = "0") Integer page,
+    public ResponseEntity<Response> getPaginatedProductResults(@RequestParam(defaultValue = "0") Integer page,
                                                      @RequestParam(defaultValue = "5") Integer size,
                                                      @RequestParam(defaultValue = "ASC") FilterEnum filter){
         return ResponseEntity.ok(productService.getPaginatedProducts(page,size,filter));

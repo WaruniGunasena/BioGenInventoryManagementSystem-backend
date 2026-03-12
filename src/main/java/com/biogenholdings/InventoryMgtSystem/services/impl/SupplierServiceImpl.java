@@ -1,6 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.SupplierDTO;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.Supplier;
 import com.biogenholdings.InventoryMgtSystem.models.User;
@@ -11,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +34,7 @@ public class SupplierServiceImpl implements SupplierService{
     public Response addSupplier(SupplierDTO supplierDTO) {
 
         Supplier supplierToSave = modelMapper.map(supplierDTO, Supplier.class);
+        supplierToSave.setIsDeleted(false);
 
         supplierRepository.save(supplierToSave);
 
@@ -42,10 +47,13 @@ public class SupplierServiceImpl implements SupplierService{
     @Override
     public Response getAllSupplier() {
 
-        List<Supplier> suppliers = supplierRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+        List<Supplier> suppliers =
+                supplierRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.DESC, "id"));
 
-        List<SupplierDTO> supplierDTOList = modelMapper.map(suppliers, new TypeToken<List<SupplierDTO>>()
-        {}.getType());
+        List<SupplierDTO> supplierDTOList = modelMapper.map(
+                suppliers,
+                new TypeToken<List<SupplierDTO>>() {}.getType()
+        );
 
         return Response.builder()
                 .status(200)
@@ -130,7 +138,7 @@ public class SupplierServiceImpl implements SupplierService{
 
         return Response.builder()
                 .status(204)
-                .message("Deleted Supplier Sucesfully")
+                .message("Deleted Supplier Successfully")
                 .build();
     }
 
@@ -146,5 +154,34 @@ public class SupplierServiceImpl implements SupplierService{
                 .message("success")
                 .suppliers(supplierDTOList)
                 .build();
+    }
+
+    @Override
+    public Response getPaginatedSuppliers(Integer page, Integer size,FilterEnum filter) {
+        Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
+
+        Page<Supplier> supplierPage = supplierRepository.findByIsDeletedFalse(pageable);
+
+        List<Supplier> supplierList = supplierPage.getContent();
+
+        List<SupplierDTO> supplierDTOList = modelMapper.map(supplierList, new TypeToken<List<SupplierDTO>>() {}.getType());
+
+        return Response.builder()
+                .status(200)
+                .message("Success")
+                .suppliers(supplierDTOList)
+                .totalPages(supplierPage.getTotalPages())
+                .totalElements(supplierPage.getTotalElements())
+                .build();
+
+    }
+
+    private Sort getSortByFilter(FilterEnum filter) {
+        log.info(filter.toString());
+        if (filter == FilterEnum.DESC) {
+            return Sort.by(Sort.Direction.DESC, "name");
+        } else {
+            return Sort.by(Sort.Direction.ASC, "name");
+        }
     }
 }

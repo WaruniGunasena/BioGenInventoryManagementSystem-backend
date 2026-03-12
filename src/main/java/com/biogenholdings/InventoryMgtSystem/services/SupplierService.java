@@ -3,6 +3,7 @@ package com.biogenholdings.InventoryMgtSystem.services;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.dtos.SupplierDTO;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 
 public interface SupplierService {
 
@@ -19,5 +20,8 @@ public interface SupplierService {
     Response softDeleteSupplier(Long id, Long userId);
 
     Response searchSupplier(String searchKey);
+
+    Response getPaginatedSuppliers(Integer page, Integer size, FilterEnum filter);
+
 
 }

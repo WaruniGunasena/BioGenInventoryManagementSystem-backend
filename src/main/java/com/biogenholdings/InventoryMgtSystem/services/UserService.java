@@ -1,6 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.services;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.*;
+import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.models.User;
 
 public interface UserService {
@@ -23,7 +24,12 @@ public interface UserService {
 
     Response resetTempPassword(ResetPasswordDto resetPasswordDto);
 
-
     Response generateTempPasswordForForgetPassword(String email);
+
+    Response softDeleteEmployee(Long id, Long userId);
+
+    Response searchEmployee(String searchKey);
+
+    Response getPaginatedEmployees(Integer page, Integer size, FilterEnum filter);
 
 }

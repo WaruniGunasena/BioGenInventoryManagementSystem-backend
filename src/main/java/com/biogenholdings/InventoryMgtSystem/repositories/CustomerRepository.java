@@ -3,6 +3,7 @@ package com.biogenholdings.InventoryMgtSystem.repositories;
 import com.biogenholdings.InventoryMgtSystem.models.Customer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,4 +14,5 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     Boolean existsByEmail(String email);
     Page<Customer> findByIsDeletedFalse(Pageable pageable);
     List<Customer> findByNameContaining(String name);
+    List<Customer> findByIsDeletedFalse(Sort sort);
 }
