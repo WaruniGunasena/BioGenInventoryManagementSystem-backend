@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -53,7 +54,6 @@ public class GRNServiceImpl implements GRNService {
                             "Product Not Found: " + itemDTO.getProductId()
                     ));
 
-            /* ---------- Save GRN Item (History Layer) ---------- */
             GRNItem grnItem = GRNItem.builder()
                     .grn(grn)
                     .product(product)
@@ -63,17 +63,20 @@ public class GRNServiceImpl implements GRNService {
                     .purchasePrice(itemDTO.getPurchasePrice())
                     .quantity(itemDTO.getQuantity())
                     .totalAmount(itemDTO.getTotalAmount())
+                    .SellingPricePercentage(itemDTO.getSellingPricePercentage())
                     .build();
 
             grn.getItems().add(grnItem);
             grnItemRepository.save(grnItem);
 
-            /* ---------- Stock Calculation (Live Layer) ---------- */
-
             BigDecimal purchasePrice = itemDTO.getPurchasePrice();
+            BigDecimal percentage = itemDTO.getSellingPricePercentage();
 
-            // Pricing rule: 10% margin
-            BigDecimal newSellingPrice = purchasePrice.multiply(BigDecimal.valueOf(1.10));
+            BigDecimal margin = purchasePrice
+                    .multiply(percentage)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+            BigDecimal newSellingPrice = purchasePrice.add(margin);
 
             ProductStock stock = productStockRepository
                     .findByProductId(product.getId())
@@ -81,11 +84,9 @@ public class GRNServiceImpl implements GRNService {
 
             if (stock != null) {
 
-                /* Quantity aggregation */
                 int updatedQty = stock.getQuantity() + itemDTO.getQuantity();
                 stock.setQuantity(updatedQty);
 
-                /* Selling price rule: only increase */
                 if (stock.getSellingPrice() == null ||
                         newSellingPrice.compareTo(stock.getSellingPrice()) > 0) {
 
@@ -96,7 +97,6 @@ public class GRNServiceImpl implements GRNService {
 
             } else {
 
-                /* First stock record for product */
                 ProductStock newStock = ProductStock.builder()
                         .product(product)
                         .quantity(itemDTO.getQuantity())
@@ -115,8 +115,6 @@ public class GRNServiceImpl implements GRNService {
                 .grn(grnResponseDTO)
                 .build();
     }
-
-    /* ---------------- Read Methods ---------------- */
 
     @Override
     public Response getAllGRNs() {
@@ -182,8 +180,6 @@ public class GRNServiceImpl implements GRNService {
                 .totalPages(grnPage.getTotalPages())
                 .build();
     }
-
-    /* ---------------- Mapping ---------------- */
 
     private GRNResponseDTO mapToDTO(GRN grn) {
         return GRNResponseDTO.builder()

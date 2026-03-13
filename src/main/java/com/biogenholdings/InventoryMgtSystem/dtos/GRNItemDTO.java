@@ -14,4 +14,5 @@ public class GRNItemDTO {
     private BigDecimal purchasePrice;
     private Integer quantity;
     private BigDecimal totalAmount;
+    private BigDecimal sellingPricePercentage;
 }
