@@ -37,6 +37,9 @@ public class GRNItem {
     @Column(name="purchase_price", nullable = false)
     private BigDecimal purchasePrice;
 
+    @Column(name = "sp_percentage")
+    private BigDecimal SellingPricePercentage;
+
     @Column(nullable = false)
     private Integer quantity;
 
