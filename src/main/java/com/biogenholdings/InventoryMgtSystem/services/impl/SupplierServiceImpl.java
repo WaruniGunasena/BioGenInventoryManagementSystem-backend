@@ -88,6 +88,9 @@ public class SupplierServiceImpl implements SupplierService{
         if (supplierDTO.getContactPerson() != null)
             existingSupplier.setContactPerson(supplierDTO.getContactPerson());
 
+        if (supplierDTO.getCreditPeriod() != null)
+            existingSupplier.setCreditPeriod(supplierDTO.getCreditPeriod());
+
         if (supplierDTO.getEmail() != null)
             existingSupplier.setEmail(supplierDTO.getEmail());
 
@@ -96,9 +99,6 @@ public class SupplierServiceImpl implements SupplierService{
 
         if (supplierDTO.getAddress() != null)
             existingSupplier.setAddress(supplierDTO.getAddress());
-
-        if (supplierDTO.getPostalCode() != null)
-            existingSupplier.setPostalCode(supplierDTO.getPostalCode());
 
         supplierRepository.save(existingSupplier);
 

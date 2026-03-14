@@ -32,6 +32,7 @@ public class Supplier {
     @Column(name = "phone_number")
     private String phoneNumber;
 
+    @NotBlank(message = "Credit Period is required")
     private String creditPeriod;
 
     private String email;
@@ -45,9 +46,6 @@ public class Supplier {
     private User deletedBy;
 
     private LocalDateTime deletedAt;
-
-    @Column(name = "postal_code")
-    private String postalCode;
 
     @PreUpdate
     protected void onUpdate() {
