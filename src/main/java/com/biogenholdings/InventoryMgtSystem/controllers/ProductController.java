@@ -27,6 +27,7 @@ public class ProductController {
             @RequestParam("name")String name,
             @RequestParam("minimumStockLevel")Integer minimumStockLevel,
             @RequestParam("unit")String unit,
+            @RequestParam("packSize")String packSize,
             @RequestParam("reorderLevel")Integer reorderLevel,
             @RequestParam("categoryId")Long categoryId,
             @RequestParam(value = "description", required = false)String description
@@ -34,6 +35,7 @@ public class ProductController {
         ProductDTO productDTO = new ProductDTO();
         productDTO.setName(name);
         productDTO.setUnit(unit);
+        productDTO.setPackSize(packSize);
         productDTO.setMinimumStockLevel(minimumStockLevel);
         productDTO.setReorderLevel(reorderLevel);
         productDTO.setCategoryId(categoryId);
@@ -52,6 +54,7 @@ public class ProductController {
             @RequestParam(value = "minimumStockLevel", required = false) Integer minimumStockLevel,
             @RequestParam(value = "reorderLevel", required = false) Integer reorderLevel,
             @RequestParam(value = "categoryId", required = false) Long categoryId,
+            @RequestParam(value = "packSize", required = false) String packSize,
             @RequestParam(value = "description", required = false) String description
     ) {
         ProductDTO productDTO = new ProductDTO();
@@ -61,6 +64,7 @@ public class ProductController {
         productDTO.setReorderLevel(reorderLevel);
         productDTO.setCategoryId(categoryId);
         productDTO.setDescription(description);
+        productDTO.setPackSize(packSize);
 
         return ResponseEntity.ok(productService.updateProduct(productDTO, imageFile));
     }

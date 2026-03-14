@@ -27,9 +27,13 @@ public class ProductDTO {
 
     private String unit;
 
+    private String packSize;
+
     private Integer minimumStockLevel;
 
     private Integer reorderLevel;
+
+    private String itemCode;
 
     private String description;
 
