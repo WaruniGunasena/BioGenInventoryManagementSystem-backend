@@ -77,7 +77,7 @@ public class ProductServiceImpl implements ProductService {
 
         return Response.builder()
                 .status(201)
-                .message("Product successfully saved")
+                .message("Product successfully saved.")
                 .build();
     }
 
