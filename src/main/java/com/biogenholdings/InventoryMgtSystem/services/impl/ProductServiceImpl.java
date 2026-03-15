@@ -58,6 +58,7 @@ public class ProductServiceImpl implements ProductService {
                 .reorderLevel(productDTO.getReorderLevel())
                 .description(productDTO.getDescription())
                 .unit(productDTO.getUnit())
+                .packSize(productDTO.getPackSize())
                 .category(category)
                 .build();
 
@@ -67,11 +68,16 @@ public class ProductServiceImpl implements ProductService {
         }
         productToSave.setIsDeleted(false);
 
-        productRepository.save(productToSave);
+        Product savedProduct = productRepository.save(productToSave);
+
+        String itemCode = "BGN-" + String.format("%03d", savedProduct.getId());
+        savedProduct.setItemCode(itemCode);
+
+        productRepository.save(savedProduct);
 
         return Response.builder()
                 .status(201)
-                .message("Product successfully saved")
+                .message("Product successfully saved.")
                 .build();
     }
 
@@ -100,6 +106,9 @@ public class ProductServiceImpl implements ProductService {
         }
         if (productDTO.getDescription() != null && !productDTO.getDescription().isEmpty()) {
             existingProduct.setDescription(productDTO.getDescription());
+        }
+        if (productDTO.getPackSize() != null && !productDTO.getPackSize().isEmpty()) {
+            existingProduct.setPackSize(productDTO.getPackSize());
         }
 
         productRepository.save(existingProduct);

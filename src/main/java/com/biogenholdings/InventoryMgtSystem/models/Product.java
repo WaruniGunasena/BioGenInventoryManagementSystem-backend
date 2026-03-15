@@ -25,6 +25,9 @@ public class Product {
     @NotBlank(message = "Name is required")
     private String name;
 
+    @Column(name = "item_code", unique = true)
+    private String itemCode;
+
     @Min(value = 0, message = "minimum stock quantity can not be negative")
     @Column(name = "minimum_stock_level")
     private Integer minimumStockLevel;
@@ -37,6 +40,9 @@ public class Product {
 
     @Column(name = "unit")
     private String unit;
+
+    @Column(name = "pack_size")
+    private String packSize;
 
     @Column(name = "image_url")
     private String imageUrl;
