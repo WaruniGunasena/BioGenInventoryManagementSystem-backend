@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.security;
 
+import jakarta.annotation.Nonnull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -12,9 +13,12 @@ public class CorsConfig {
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
-            public void addCorsMappings(CorsRegistry registry) {
+            public void addCorsMappings(@Nonnull CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000")    // allow all origins
+                        .allowedOrigins("http://localhost:3000",
+                                "http://inventory-app-biogeninventory.s3-website.eu-north-1.amazonaws.com",
+                                "https://d24uctmi3dzgis.cloudfront.net/")    // allow all origins
+//                        .allowedOrigins("*")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true); // must be false when allowedOrigins("*")

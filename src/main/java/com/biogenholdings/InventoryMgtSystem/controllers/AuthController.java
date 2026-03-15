@@ -7,10 +7,7 @@ import com.biogenholdings.InventoryMgtSystem.services.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -28,6 +25,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Response> loginUser(@RequestBody @Valid LoginRequest loginRequest){
         return ResponseEntity.ok(userService.loginUser(loginRequest));
+    }
+
+    @GetMapping("/AdminExists")
+    public ResponseEntity<Boolean> AdminExists(){
+        return ResponseEntity.ok(userService.AdminRoleExists());
     }
 
 }

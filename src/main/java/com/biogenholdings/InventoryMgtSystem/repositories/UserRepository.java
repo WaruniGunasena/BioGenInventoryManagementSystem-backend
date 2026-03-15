@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.repositories;
 
+import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
 import com.biogenholdings.InventoryMgtSystem.models.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,4 +16,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByNameContaining(String name);
     Page<User> findByIsDeletedFalse(Pageable pageable);
     List<User> findByIsDeletedFalse(Sort sort);
+    Boolean existsByRoleAndIsDeletedFalse(UserRole role);
 }
