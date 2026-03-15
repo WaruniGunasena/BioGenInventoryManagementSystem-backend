@@ -32,4 +32,6 @@ public interface UserService {
 
     Response getPaginatedEmployees(Integer page, Integer size, FilterEnum filter);
 
+    Boolean AdminRoleExists();
+
 }

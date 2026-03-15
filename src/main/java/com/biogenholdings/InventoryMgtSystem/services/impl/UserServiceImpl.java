@@ -47,10 +47,19 @@ public class UserServiceImpl implements UserService {
             role = registerRequest.getRole();
         }
 
+        if (role == UserRole.ADMIN) {
+            // If they are, check if one already exists in the DB
+            if (userRepository.existsByRoleAndIsDeletedFalse(UserRole.ADMIN)) {
+                throw new RuntimeException("Initial setup already completed. Only one Super Admin is allowed.");
+            }
+        }
+
         User userToSave = User.builder()
                 .name(registerRequest.getName())
                 .email(registerRequest.getEmail())
                 .password(passwordEncoder.encode(registerRequest.getPassword()))
+                .isTempPassword(false)
+                .isDeleted(false)
                 .role(role)
                 .build();
 
@@ -65,6 +74,13 @@ public class UserServiceImpl implements UserService {
     @Override
 //    @PreAuthorize("hasAny('ADMIN')")
     public Response registerEmployee(EmpRegisterRequest empRegisterRequest) {
+
+        if (empRegisterRequest.getRole() == UserRole.ADMIN) {
+            // If they are, check if one already exists in the DB
+            if (userRepository.existsByRoleAndIsDeletedFalse(UserRole.ADMIN)) {
+                throw new RuntimeException("Initial setup already completed. Only one Super Admin is allowed.");
+            }
+        }
 
         String tempPassword = UUID.randomUUID().toString().substring(0, 8);
 
@@ -231,6 +247,11 @@ public class UserServiceImpl implements UserService {
                 .totalPages(userPage.getTotalPages())
                 .totalElements(userPage.getTotalElements())
                 .build();
+    }
+
+    @Override
+    public Boolean AdminRoleExists() {
+        return userRepository.existsByRoleAndIsDeletedFalse(UserRole.ADMIN);
     }
 
     private Sort getSortByFilter(FilterEnum filter) {
