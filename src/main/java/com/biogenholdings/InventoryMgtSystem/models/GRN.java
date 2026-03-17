@@ -50,4 +50,19 @@ public class GRN {
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Column(name = "updated_by")
+    private Long updatedBy;
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }

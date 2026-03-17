@@ -15,4 +15,8 @@ public interface GRNService {
 
     Response getPaginatedGRNs(int page, int size);
 
+    Response updateGRN(Long id, GRNRequestDTO dto);
+
+    Response softDeleteGRN(Long id, Long userId);
+
 }

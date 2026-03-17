@@ -15,13 +15,12 @@ public interface ProductStockRepository extends JpaRepository<ProductStock, Long
 
     Optional<ProductStock> findByProductId(Long productId);
 
-    // Search by product name and return DTO directly
     @Query("""
         SELECT new com.biogenholdings.InventoryMgtSystem.dtos.StockResponseDTO(
             ps.id,
             p.id,
             p.name,
-            ps.quantity,
+            ps.totalQuantity,
             ps.sellingPrice,
             p.minimumStockLevel,
             p.reorderLevel
@@ -32,13 +31,12 @@ public interface ProductStockRepository extends JpaRepository<ProductStock, Long
     """)
     Page<StockResponseDTO> searchStockByNamePaginated(Pageable pageable,@Param("searchKey") String searchKey);
 
-    // Paginated stocks with dynamic sorting
     @Query("""
         SELECT new com.biogenholdings.InventoryMgtSystem.dtos.StockResponseDTO(
             ps.id,
             p.id,
             p.name,
-            ps.quantity,
+            ps.totalQuantity,
             ps.sellingPrice,
             p.minimumStockLevel,
             p.reorderLevel
@@ -48,13 +46,12 @@ public interface ProductStockRepository extends JpaRepository<ProductStock, Long
     """)
     Page<StockResponseDTO> getPaginatedStockData(Pageable pageable);
 
-    // All stocks
     @Query("""
         SELECT new com.biogenholdings.InventoryMgtSystem.dtos.StockResponseDTO(
             ps.id,
             p.id,
             p.name,
-            ps.quantity,
+            ps.totalQuantity,
             ps.sellingPrice,
             p.minimumStockLevel,
             p.reorderLevel

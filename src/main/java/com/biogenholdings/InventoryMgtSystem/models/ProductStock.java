@@ -24,8 +24,8 @@ public class ProductStock {
     @JoinColumn(name = "product_id", nullable = false, unique = true)
     private Product product;
 
-    @Column(nullable = false)
-    private Integer quantity;
+    @Column(name = "total_quantity", nullable = false)
+    private Integer totalQuantity;
 
     @Column(name = "selling_price", nullable = false)
     private BigDecimal sellingPrice;

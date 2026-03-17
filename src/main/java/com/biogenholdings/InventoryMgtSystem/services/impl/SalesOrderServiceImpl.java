@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 public class SalesOrderServiceImpl implements SalesOrderService {
 
     private final SalesOrderRepository salesOrderRepository;
-    private final SalesOrderItemRepository salesOrderItemRepository;
     private final ProductRepository productRepository;
     private final ProductStockRepository productStockRepository;
     private final CustomerRepository customerRepository;
@@ -77,11 +76,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             ProductStock stock = productStockRepository.findByProductId(product.getId())
                     .orElseThrow(() -> new RuntimeException("Product stock not found"));
 
-            if (stock.getQuantity() < itemReq.getQuantity()) {
+            if (stock.getTotalQuantity() < itemReq.getQuantity()) {
                 throw new RuntimeException("Insufficient stock for product: " + product.getName());
             }
 
-            stock.setQuantity(stock.getQuantity() - itemReq.getQuantity());
+            stock.setTotalQuantity(stock.getTotalQuantity() - itemReq.getQuantity());
             productStockRepository.save(stock);
 
             SalesOrderItem item = SalesOrderItem.builder()
@@ -101,7 +100,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         order.setItems(items);
         salesOrderRepository.save(order);
 
-        // Build response
         List<SalesOrderItemResponseDTO> responseItems = items.stream()
                 .map(i -> SalesOrderItemResponseDTO.builder()
                         .productId(i.getProduct().getId())

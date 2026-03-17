@@ -42,4 +42,23 @@ public class GRNController {
 
         return ResponseEntity.status(response.getStatus()).body(response);
     }
+
+    @PutMapping("/update/{id}")
+    public ResponseEntity<Response> updateGRN(
+            @PathVariable Long id,
+            @RequestBody GRNRequestDTO dto) {
+
+        Response response = grnService.updateGRN(id, dto);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/softDelete")
+    public ResponseEntity<Response> softDeleteGRN(
+            @RequestParam Long id,
+            @RequestParam Long userId) {
+
+        Response response = grnService.softDeleteGRN(id, userId);
+
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
 }

@@ -16,7 +16,9 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +45,11 @@ public class GRNServiceImpl implements GRNService {
                 .grandTotal(dto.getGrandTotal())
                 .userId(dto.getUserId())
                 .supplier(supplier)
+                .updatedBy(dto.getUserId())
+                .updatedAt(LocalDateTime.now())
+                .isDeleted(false)
+                .deletedBy(null)
+                .deletedAt(null)
                 .build();
 
         grn = grnRepository.save(grn);
@@ -54,6 +61,8 @@ public class GRNServiceImpl implements GRNService {
                             "Product Not Found: " + itemDTO.getProductId()
                     ));
 
+            int totalReceived = itemDTO.getQuantity() + itemDTO.getBonus();
+
             GRNItem grnItem = GRNItem.builder()
                     .grn(grn)
                     .product(product)
@@ -62,8 +71,17 @@ public class GRNServiceImpl implements GRNService {
                     .expDate(itemDTO.getExpDate())
                     .purchasePrice(itemDTO.getPurchasePrice())
                     .quantity(itemDTO.getQuantity())
+                    .bonus(itemDTO.getBonus())
+                    .packSize(itemDTO.getPackSize())
+                    .mrpValue(itemDTO.getMrpValue())
                     .totalAmount(itemDTO.getTotalAmount())
                     .SellingPricePercentage(itemDTO.getSellingPricePercentage())
+                    .discountValue(itemDTO.getDiscountValue())
+                    .discountPercentage(itemDTO.getDiscountPercentage())
+                    .createdAt(LocalDateTime.now())
+                    .isDeleted(false)
+                    .deletedBy(null)
+                    .deletedAt(null)
                     .build();
 
             grn.getItems().add(grnItem);
@@ -84,8 +102,8 @@ public class GRNServiceImpl implements GRNService {
 
             if (stock != null) {
 
-                int updatedQty = stock.getQuantity() + itemDTO.getQuantity();
-                stock.setQuantity(updatedQty);
+                int updatedQty = stock.getTotalQuantity() + totalReceived;
+                stock.setTotalQuantity(updatedQty);
 
                 if (stock.getSellingPrice() == null ||
                         newSellingPrice.compareTo(stock.getSellingPrice()) > 0) {
@@ -99,7 +117,7 @@ public class GRNServiceImpl implements GRNService {
 
                 ProductStock newStock = ProductStock.builder()
                         .product(product)
-                        .quantity(itemDTO.getQuantity())
+                        .totalQuantity(totalReceived)
                         .sellingPrice(newSellingPrice)
                         .build();
 
@@ -161,9 +179,10 @@ public class GRNServiceImpl implements GRNService {
 
     @Override
     public Response getPaginatedGRNs(int page, int size) {
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
 
-        Page<GRN> grnPage = grnRepository.findAll(pageable);
+        Page<GRN> grnPage = grnRepository.findByIsDeletedFalse(pageable);
 
         List<GRNResponseDTO> grnDTOList = grnPage
                 .getContent()
@@ -181,6 +200,162 @@ public class GRNServiceImpl implements GRNService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public Response updateGRN(Long grnId, GRNRequestDTO dto) {
+
+        GRN grn = grnRepository.findById(grnId)
+                .orElseThrow(() -> new NotFoundException("GRN Not Found"));
+
+        Supplier supplier = supplierRepository.findById(dto.getSupplierId())
+                .orElseThrow(() -> new NotFoundException("Supplier Not Found"));
+
+        grn.setInvoiceNumber(dto.getInvoiceNumber());
+        grn.setGrnDate(dto.getDate());
+        grn.setGrandTotal(dto.getGrandTotal());
+        grn.setUpdatedAt(LocalDateTime.now());
+        grn.setUpdatedBy(dto.getUserId());
+        grn.setSupplier(supplier);
+
+        List<GRNItem> existingItems = grnItemRepository.findByGrnId(grnId);
+
+        List<Long> incomingIds = dto.getItems().stream()
+                .map(GRNItemDTO::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        for (GRNItem existingItem : existingItems) {
+
+            if (existingItem.getId() != null && !incomingIds.contains(existingItem.getId())) {
+
+                int oldQty = existingItem.getQuantity() + existingItem.getBonus();
+
+                ProductStock stock = productStockRepository
+                        .findByProductId(existingItem.getProduct().getId())
+                        .orElse(null);
+
+                if (stock != null) {
+                    int updatedQty = stock.getTotalQuantity() - oldQty;
+                    if (updatedQty < 0) updatedQty = 0;
+
+                    stock.setTotalQuantity(updatedQty);
+                    productStockRepository.save(stock);
+                }
+
+                existingItem.setIsDeleted(true);
+                existingItem.setDeletedBy(dto.getUserId());
+                existingItem.setDeletedAt(LocalDateTime.now());
+
+                grnItemRepository.save(existingItem);
+            }
+        }
+
+        for (GRNItemDTO itemDTO : dto.getItems()) {
+
+            GRNItem grnItem;
+            Product product;
+
+            if (itemDTO.getId() != null) {
+
+                grnItem = grnItemRepository.findById(itemDTO.getId())
+                        .orElseThrow(() -> new NotFoundException(
+                                "GRN Item Not Found: " + itemDTO.getId()));
+
+                int oldQty = grnItem.getQuantity() + grnItem.getBonus();
+
+                ProductStock stock = productStockRepository
+                        .findByProductId(grnItem.getProduct().getId())
+                        .orElse(null);
+
+                if (stock != null) {
+                    stock.setTotalQuantity(stock.getTotalQuantity() - oldQty);
+                    productStockRepository.save(stock);
+                }
+
+                product = grnItem.getProduct();
+
+            }
+
+            else {
+
+                product = productRepository.findById(itemDTO.getProductId())
+                        .orElseThrow(() -> new NotFoundException(
+                                "Product Not Found: " + itemDTO.getProductId()));
+
+                grnItem = GRNItem.builder()
+                        .grn(grn)
+                        .product(product)
+                        .createdAt(LocalDateTime.now())
+                        .isDeleted(false)
+                        .build();
+            }
+
+            int totalReceived = itemDTO.getQuantity() + itemDTO.getBonus();
+
+            grnItem.setBatchNumber(itemDTO.getBatchNumber());
+            grnItem.setMfgDate(itemDTO.getMfgDate());
+            grnItem.setExpDate(itemDTO.getExpDate());
+            grnItem.setPurchasePrice(itemDTO.getPurchasePrice());
+            grnItem.setQuantity(itemDTO.getQuantity());
+            grnItem.setBonus(itemDTO.getBonus());
+            grnItem.setPackSize(itemDTO.getPackSize());
+            grnItem.setTotalAmount(itemDTO.getTotalAmount());
+            grnItem.setDiscountValue(itemDTO.getDiscountValue());
+            grnItem.setMrpValue(itemDTO.getMrpValue());
+            grnItem.setDiscountPercentage(itemDTO.getDiscountPercentage());
+            grnItem.setSellingPricePercentage(itemDTO.getSellingPricePercentage());
+            grnItem.setUpdatedAt(LocalDateTime.now());
+            grnItem.setUpdatedBy(dto.getUserId());
+
+            grnItemRepository.save(grnItem);
+
+            BigDecimal purchasePrice = itemDTO.getPurchasePrice();
+            BigDecimal percentage = itemDTO.getSellingPricePercentage();
+
+            BigDecimal margin = purchasePrice
+                    .multiply(percentage)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+            BigDecimal newSellingPrice = purchasePrice.add(margin);
+
+            ProductStock stock = productStockRepository
+                    .findByProductId(product.getId())
+                    .orElse(null);
+
+            if (stock != null) {
+
+                int updatedQty = stock.getTotalQuantity() + totalReceived;
+                stock.setTotalQuantity(updatedQty);
+
+                if (stock.getSellingPrice() == null ||
+                        newSellingPrice.compareTo(stock.getSellingPrice()) > 0) {
+
+                    stock.setSellingPrice(newSellingPrice);
+                }
+
+                productStockRepository.save(stock);
+
+            } else {
+
+                ProductStock newStock = ProductStock.builder()
+                        .product(product)
+                        .totalQuantity(totalReceived)
+                        .sellingPrice(newSellingPrice)
+                        .build();
+
+                productStockRepository.save(newStock);
+            }
+        }
+
+        grnRepository.save(grn);
+
+        return Response.builder()
+                .status(200)
+                .message("GRN updated successfully")
+                .grn(mapToDTO(grn))
+                .build();
+    }
+
     private GRNResponseDTO mapToDTO(GRN grn) {
         return GRNResponseDTO.builder()
                 .id(grn.getId())
@@ -194,6 +369,7 @@ public class GRNServiceImpl implements GRNService {
                         .phoneNumber(grn.getSupplier().getPhoneNumber())
                         .email(grn.getSupplier().getEmail())
                         .address(grn.getSupplier().getAddress())
+                        .creditPeriod(grn.getSupplier().getCreditPeriod())
                         .build())
                 .items(grn.getItems() == null ? List.of() :
                         grn.getItems().stream()
@@ -203,13 +379,20 @@ public class GRNServiceImpl implements GRNService {
                                                 .id(item.getProduct().getId())
                                                 .name(item.getProduct().getName())
                                                 .unit(item.getProduct().getUnit())
+                                                .itemCode(item.getProduct().getItemCode())
                                                 .build())
                                         .batchNumber(item.getBatchNumber())
                                         .mfgDate(item.getMfgDate())
                                         .expDate(item.getExpDate())
                                         .purchasePrice(item.getPurchasePrice())
                                         .quantity(item.getQuantity())
+                                        .bonus(item.getBonus())
+                                        .packSize(item.getPackSize())
                                         .totalAmount(item.getTotalAmount())
+                                        .discountValue(item.getDiscountValue())
+                                        .discountPercentage(item.getDiscountPercentage())
+                                        .mrpValue(item.getMrpValue())
+                                        .SellingPricePercentage(item.getSellingPricePercentage())
                                         .build())
                                 .toList())
                 .build();
@@ -217,5 +400,53 @@ public class GRNServiceImpl implements GRNService {
 
     private String generateGRNNumber() {
         return "GRN-" + System.currentTimeMillis();
+    }
+
+    @Override
+    @Transactional
+    public Response softDeleteGRN(Long grnId, Long userId) {
+
+        GRN grn = grnRepository.findById(grnId)
+                .orElseThrow(() -> new NotFoundException("GRN not found"));
+
+        List<GRNItem> items = grnItemRepository.findByGrnId(grnId);
+
+        for (GRNItem item : items) {
+
+            int totalReceived = item.getQuantity() + item.getBonus();
+
+            ProductStock stock = productStockRepository
+                    .findByProductId(item.getProduct().getId())
+                    .orElse(null);
+
+            if (stock != null) {
+
+                int updatedQty = stock.getTotalQuantity() - totalReceived;
+
+                if (updatedQty < 0) {
+                    updatedQty = 0;
+                }
+
+                stock.setTotalQuantity(updatedQty);
+                productStockRepository.save(stock);
+            }
+
+            item.setIsDeleted(true);
+            item.setDeletedBy(userId);
+            item.setDeletedAt(LocalDateTime.now());
+
+            grnItemRepository.save(item);
+        }
+
+        grn.setIsDeleted(true);
+        grn.setDeletedBy(userId);
+        grn.setDeletedAt(LocalDateTime.now());
+
+        grnRepository.save(grn);
+
+        return Response.builder()
+                .status(204)
+                .message("Category Deleted Successfully")
+                .build();
     }
 }
