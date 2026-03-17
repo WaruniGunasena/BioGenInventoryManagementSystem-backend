@@ -14,7 +14,7 @@ public class StockResponseDTO {
     private Long stockId;
     private Long productId;
     private String productName;
-    private Integer quantity;
+    private Integer totalQuantity;
     private BigDecimal sellingPrice;
     private Integer minimumStockLevel;
     private Integer reorderLevel;

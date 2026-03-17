@@ -17,6 +17,11 @@ public class GRNItemResponseDTO {
     private LocalDate expDate;
     private BigDecimal purchasePrice;
     private Integer quantity;
+    private Integer bonus;
+    private String packSize;
     private BigDecimal SellingPricePercentage;
     private BigDecimal totalAmount;
+    private BigDecimal discountValue;
+    private BigDecimal discountPercentage;
+    private BigDecimal mrpValue;
 }
