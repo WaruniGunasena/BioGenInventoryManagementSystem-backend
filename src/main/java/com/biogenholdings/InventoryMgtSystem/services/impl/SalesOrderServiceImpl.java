@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 public class SalesOrderServiceImpl implements SalesOrderService {
 
     private final SalesOrderRepository salesOrderRepository;
-    private final SalesOrderItemRepository salesOrderItemRepository;
     private final ProductRepository productRepository;
     private final ProductStockRepository productStockRepository;
     private final CustomerRepository customerRepository;
