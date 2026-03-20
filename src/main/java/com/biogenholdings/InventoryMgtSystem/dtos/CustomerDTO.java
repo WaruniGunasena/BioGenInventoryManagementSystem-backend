@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -35,6 +36,8 @@ public class CustomerDTO {
     private String postalCode;
 
     private String creditPeriod;
+
+    private BigDecimal creditLimit;
 
     private LocalDateTime createdAt;
 }

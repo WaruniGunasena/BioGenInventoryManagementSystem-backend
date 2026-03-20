@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -48,6 +49,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .contact_No(customerDTO.getContact_No())
                 .province(customerDTO.getProvince())
                 .creditPeriod(customerDTO.getCreditPeriod())
+                .creditLimit(customerDTO.getCreditLimit())
                 .build();
 
         customerRepository.save(customerToSave);
