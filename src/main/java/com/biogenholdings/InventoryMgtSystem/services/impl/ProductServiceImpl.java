@@ -25,7 +25,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -127,6 +126,12 @@ public class ProductServiceImpl implements ProductService {
         }
         if (productDTO.getPackSize() != null && !productDTO.getPackSize().isEmpty()) {
             existingProduct.setPackSize(productDTO.getPackSize());
+        }
+        if(productDTO.getMrp() != null){
+            existingProduct.setMrp(productDTO.getMrp());
+        }
+        if(productDTO.getOpeningBalance() != null){
+            existingProduct.setOpeningBalance(productDTO.getOpeningBalance());
         }
 
         productRepository.save(existingProduct);

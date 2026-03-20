@@ -63,7 +63,10 @@ public class ProductController {
             @RequestParam(value = "reorderLevel", required = false) Integer reorderLevel,
             @RequestParam(value = "categoryId", required = false) Long categoryId,
             @RequestParam(value = "packSize", required = false) String packSize,
-            @RequestParam(value = "description", required = false) String description
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "openingBalance", required = false, defaultValue = "0") Integer openingBalance,
+            @RequestParam(value = "mrp") BigDecimal mrp,
+            @RequestParam(value = "sRepCommissionRate") BigDecimal sRepCommissionRate
     ) {
         ProductDTO productDTO = new ProductDTO();
         productDTO.setId(id);
@@ -73,6 +76,10 @@ public class ProductController {
         productDTO.setCategoryId(categoryId);
         productDTO.setDescription(description);
         productDTO.setPackSize(packSize);
+        productDTO.setSellingPrice(sellingPrice);
+        productDTO.setMrp(mrp);
+        productDTO.setOpeningBalance(openingBalance);
+        productDTO.setSRepCommissionRate(sRepCommissionRate);
 
         return ResponseEntity.ok(productService.updateProduct(productDTO, imageFile));
     }

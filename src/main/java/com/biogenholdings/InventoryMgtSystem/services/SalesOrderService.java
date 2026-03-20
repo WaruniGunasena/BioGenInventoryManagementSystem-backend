@@ -1,7 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.services;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
-import com.biogenholdings.InventoryMgtSystem.dtos.SalesOrderItemResponseDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.SalesOrderRequestDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.SalesOrderResponseDTO;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
