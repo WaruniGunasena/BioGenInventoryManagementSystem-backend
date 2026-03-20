@@ -261,10 +261,19 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter) {
+    public Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter, Long categoryID) {
         Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
 
-        Page<Product> productPage = productRepository.findByIsDeletedFalse(pageable);
+        Page<Product> productPage;
+
+        // 2. Decide which query to run based on Category ID
+        if (categoryID != null && categoryID > 0) {
+            // Fetch products for a specific category
+            productPage = productRepository.findByCategoryIdAndIsDeletedFalse(categoryID, pageable);
+        } else {
+            // Fetch all products (General view)
+            productPage = productRepository.findByIsDeletedFalse(pageable);
+        }
 
         List<Product> productList = productPage.getContent();
 

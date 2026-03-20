@@ -114,8 +114,9 @@ public class ProductController {
     @GetMapping
     public ResponseEntity<Response> getPaginatedProductResults(@RequestParam(defaultValue = "0") Integer page,
                                                      @RequestParam(defaultValue = "5") Integer size,
-                                                     @RequestParam(defaultValue = "ASC") FilterEnum filter){
-        return ResponseEntity.ok(productService.getPaginatedProducts(page,size,filter));
+                                                     @RequestParam(defaultValue = "ASC") FilterEnum filter,
+                                                               @RequestParam(required = false) Long categoryID){
+        return ResponseEntity.ok(productService.getPaginatedProducts(page,size,filter,categoryID));
     }
 
 }
