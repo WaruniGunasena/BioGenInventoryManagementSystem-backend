@@ -21,5 +21,6 @@ public interface ProductService {
 
     Response searchProduct(String searchKey);
 
-    Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter);
+    Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter, Long categoryID);
+
 }

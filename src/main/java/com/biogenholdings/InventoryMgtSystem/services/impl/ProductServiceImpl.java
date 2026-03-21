@@ -6,11 +6,14 @@ import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.Category;
 import com.biogenholdings.InventoryMgtSystem.models.Product;
+import com.biogenholdings.InventoryMgtSystem.models.ProductStock;
 import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.repositories.CategoryRepository;
 import com.biogenholdings.InventoryMgtSystem.repositories.ProductRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.ProductStockRepository;
 import com.biogenholdings.InventoryMgtSystem.repositories.UserRepository;
 import com.biogenholdings.InventoryMgtSystem.services.ProductService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -37,11 +40,13 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final ProductStockRepository productStockRepository;
     private final ModelMapper modelMapper;
 
     private static final String IMAGE_DIRECTORY = System.getProperty("user.dir") + "/product-images/";
 
     @Override
+    @Transactional
     public Response saveProduct(ProductDTO productDTO, MultipartFile imageFile) {
         if (productDTO.getName() == null || productDTO.getName().trim().isEmpty()) {
             throw new IllegalArgumentException("Product name is required");
@@ -60,6 +65,8 @@ public class ProductServiceImpl implements ProductService {
                 .unit(productDTO.getUnit())
                 .packSize(productDTO.getPackSize())
                 .category(category)
+                .mrp(productDTO.getMrp())
+                .SRepCommissionRate(productDTO.getSRepCommissionRate())
                 .build();
 
         if (imageFile != null && !imageFile.isEmpty()) {
@@ -69,6 +76,16 @@ public class ProductServiceImpl implements ProductService {
         productToSave.setIsDeleted(false);
 
         Product savedProduct = productRepository.save(productToSave);
+        System.out.println("DEBUG: Incoming sellingPrice = " + productDTO.getSellingPrice());
+        ProductStock stock = ProductStock.builder()
+                .product(savedProduct)
+                .totalQuantity(productDTO.getOpeningBalance() != null ? productDTO.getOpeningBalance() : 0)
+                .sellingPrice(productDTO.getSellingPrice())
+                .build();
+
+        productStockRepository.save(stock);
+
+
 
         String itemCode = "BGN-" + String.format("%03d", savedProduct.getId());
         savedProduct.setItemCode(itemCode);
@@ -109,6 +126,12 @@ public class ProductServiceImpl implements ProductService {
         }
         if (productDTO.getPackSize() != null && !productDTO.getPackSize().isEmpty()) {
             existingProduct.setPackSize(productDTO.getPackSize());
+        }
+        if(productDTO.getMrp() != null){
+            existingProduct.setMrp(productDTO.getMrp());
+        }
+        if(productDTO.getOpeningBalance() != null){
+            existingProduct.setOpeningBalance(productDTO.getOpeningBalance());
         }
 
         productRepository.save(existingProduct);
@@ -238,10 +261,19 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter) {
+    public Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter, Long categoryID) {
         Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
 
-        Page<Product> productPage = productRepository.findByIsDeletedFalse(pageable);
+        Page<Product> productPage;
+
+        // 2. Decide which query to run based on Category ID
+        if (categoryID != null && categoryID > 0) {
+            // Fetch products for a specific category
+            productPage = productRepository.findByCategoryIdAndIsDeletedFalse(categoryID, pageable);
+        } else {
+            // Fetch all products (General view)
+            productPage = productRepository.findByIsDeletedFalse(pageable);
+        }
 
         List<Product> productList = productPage.getContent();
 

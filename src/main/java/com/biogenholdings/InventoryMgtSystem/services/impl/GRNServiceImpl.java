@@ -87,6 +87,9 @@ public class GRNServiceImpl implements GRNService {
             grn.getItems().add(grnItem);
             grnItemRepository.save(grnItem);
 
+            product.setMrp(itemDTO.getMrpValue());
+            productRepository.save(product);
+
             BigDecimal purchasePrice = itemDTO.getPurchasePrice();
             BigDecimal percentage = itemDTO.getSellingPricePercentage();
 
@@ -124,6 +127,7 @@ public class GRNServiceImpl implements GRNService {
                 productStockRepository.save(newStock);
             }
         }
+
 
         GRNResponseDTO grnResponseDTO = mapToDTO(grn);
 

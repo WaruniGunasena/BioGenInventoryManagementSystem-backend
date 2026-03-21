@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -44,10 +46,16 @@ public class Product {
     @Column(name = "pack_size")
     private String packSize;
 
+    private Integer openingBalance;
+
+    private BigDecimal SRepCommissionRate;
+
     @Column(name = "image_url")
     private String imageUrl;
 
     private Boolean isDeleted;
+
+    private BigDecimal mrp;
 
     @ManyToOne
     @JoinColumn(name = "deleted_by_id")

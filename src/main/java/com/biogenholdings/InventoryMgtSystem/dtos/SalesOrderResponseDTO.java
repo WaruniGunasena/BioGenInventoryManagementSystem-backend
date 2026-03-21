@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.dtos;
 
+import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +30,8 @@ public class SalesOrderResponseDTO {
     private UserDTO user;
 
     private Long userId;
+
+    private SalesOrderStatus status;
 
     private List<SalesOrderItemResponseDTO> items;
 }
