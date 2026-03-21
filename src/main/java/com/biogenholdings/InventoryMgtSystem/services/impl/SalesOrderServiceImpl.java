@@ -71,6 +71,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .user(salesRep)
                 .invoiceDate(request.getDate())
                 .grandTotal(request.getGrandTotal())
+                .isDeleted(false)
                 .status(userRole.getRole() == UserRole.SALES_REP ?
                         SalesOrderStatus.Pending : SalesOrderStatus.Approved)
                 .build();
@@ -195,7 +196,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setDeletedAt(LocalDateTime.now());
 
         // ✅ Update status
-        salesOrder.setStatus(SalesOrderStatus.Rejected);
+        salesOrder.setStatus(SalesOrderStatus.Deleted);
 
         salesOrderRepository.save(salesOrder);
 
@@ -336,6 +337,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .status(200)
                 .message(message)
                 .build();
+    }
+
+    @Override
+    public Long pendingSalesOrderCount() {
+
+        return salesOrderRepository.countByStatusAndIsDeletedFalse(SalesOrderStatus.Pending);
     }
 
 
