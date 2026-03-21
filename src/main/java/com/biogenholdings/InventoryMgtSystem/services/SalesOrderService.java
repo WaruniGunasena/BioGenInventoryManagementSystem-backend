@@ -18,4 +18,6 @@ public interface SalesOrderService {
     SalesOrderResponseDTO updateSalesOrder(Long orderId, SalesOrderRequestDTO request, Long userId);
 
     Response approveSalesOrder(SalesOrderStatus salesOrderStatus, Long userId, Long salesOrderId);
+
+    Long pendingSalesOrderCount();
 }

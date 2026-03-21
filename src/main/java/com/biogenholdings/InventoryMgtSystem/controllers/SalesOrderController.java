@@ -47,10 +47,15 @@ public class SalesOrderController {
         return ResponseEntity.ok(salesOrderService.updateSalesOrder(salesOrderID,salesOrderRequestDTO,userID));
     }
 
-    @PostMapping("Approval")
+    @PostMapping("/Approval")
     public ResponseEntity<Response> approveSalesOrder(@RequestParam Long userId,
                                                       @RequestParam SalesOrderStatus salesOrderStatus,
                                                       @RequestParam Long salesOrderId){
         return ResponseEntity.ok(salesOrderService.approveSalesOrder(salesOrderStatus,userId,salesOrderId));
+    }
+
+    @GetMapping("/getPendingOrderCount")
+    public ResponseEntity<Long> getPendingOrderCount(){
+        return ResponseEntity.ok(salesOrderService.pendingSalesOrderCount());
     }
 }
