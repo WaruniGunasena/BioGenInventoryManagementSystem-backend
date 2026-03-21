@@ -67,6 +67,7 @@ public class ProductServiceImpl implements ProductService {
                 .category(category)
                 .mrp(productDTO.getMrp())
                 .SRepCommissionRate(productDTO.getSRepCommissionRate())
+                .openingBalance(productDTO.getOpeningBalance())
                 .build();
 
         if (imageFile != null && !imageFile.isEmpty()) {
@@ -143,10 +144,31 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Response getAllProducts() {
-        List<Product> productList = productRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.DESC, "id"));
+    public Response getAllProducts(Long categoryID) {
+
+        List<Product> productList;
+        if(categoryID != null){
+            productList = productRepository.findByCategoryIdAndIsDeletedFalse(categoryID);
+        }else {
+            productList = productRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.ASC, "id"));
+        }
         List<ProductDTO> productDTOList = modelMapper.map(productList, new TypeToken<List<ProductDTO>>() {}.getType());
 
+        for (int i = 0; i < productList.size(); i++) {
+            Product entity = productList.get(i);
+            ProductDTO dto = productDTOList.get(i);
+
+            // Manually map the Stock data if it exists
+            if (entity.getProductStock() != null) {
+                dto.setSellingPrice(entity.getProductStock().getSellingPrice());
+                dto.setMrp(productDTOList.get(i).getMrp());
+                // Map any other fields that ModelMapper might have missed
+            }
+
+            // Custom logic: change Product ID to ItemCode for your export
+            // If your DTO 'id' field should show the 'itemCode' value:
+            // dto.setIdString(entity.getItemCode());
+        }
         return Response.builder()
                 .status(200)
                 .message("Success")
