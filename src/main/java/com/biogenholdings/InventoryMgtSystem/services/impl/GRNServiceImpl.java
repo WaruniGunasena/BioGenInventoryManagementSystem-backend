@@ -534,7 +534,6 @@ public class GRNServiceImpl implements GRNService {
                     .build();
 
         } catch (Exception e) {
-            e.printStackTrace();
             return Response.builder()
                     .status(500)
                     .message("Failed to create GRN payment: " + e.getMessage())
