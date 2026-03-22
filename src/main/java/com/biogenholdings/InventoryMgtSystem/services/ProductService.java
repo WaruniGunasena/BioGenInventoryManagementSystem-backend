@@ -11,7 +11,7 @@ public interface ProductService {
 
     Response updateProduct(ProductDTO productDTO, MultipartFile imageFile);
 
-    Response getAllProducts();
+    Response getAllProducts(Long categoryID);
 
     Response getProductById(Long id);
 

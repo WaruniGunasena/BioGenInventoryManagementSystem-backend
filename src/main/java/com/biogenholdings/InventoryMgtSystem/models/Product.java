@@ -63,6 +63,10 @@ public class Product {
 
     private LocalDateTime deletedAt;
 
+    // Inside Product.java
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL)
+    private ProductStock productStock;
+
     @PreUpdate
     protected void onUpdate() {
         if (Boolean.TRUE.equals(this.isDeleted) && this.deletedAt == null) {

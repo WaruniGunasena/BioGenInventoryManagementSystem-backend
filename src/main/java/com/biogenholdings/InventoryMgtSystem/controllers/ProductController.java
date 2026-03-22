@@ -85,8 +85,8 @@ public class ProductController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<Response> getAllProducts(){
-        return ResponseEntity.ok(productService.getAllProducts());
+    public ResponseEntity<Response> getAllProducts( @RequestParam(required = false) Long categoryID){
+        return ResponseEntity.ok(productService.getAllProducts(categoryID));
     }
 
     @GetMapping("/{id}")
