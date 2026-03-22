@@ -18,4 +18,5 @@ public class GRNRequestDTO {
     private BigDecimal grandTotal;
     private Long userId;
     private List<GRNItemDTO> items;
+    private String paymentStatus;
 }

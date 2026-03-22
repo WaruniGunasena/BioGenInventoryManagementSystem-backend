@@ -65,4 +65,7 @@ public class GRN {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @Column(name = "payment_status")
+    private String paymentStatus;
 }
