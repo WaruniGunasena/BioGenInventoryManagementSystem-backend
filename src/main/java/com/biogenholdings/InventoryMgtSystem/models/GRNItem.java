@@ -20,10 +20,12 @@ public class GRNItem {
 
     @ManyToOne
     @JoinColumn(name="grn_id", nullable = false)
+    @EqualsAndHashCode.Exclude
     private GRN grn;
 
     @ManyToOne
     @JoinColumn(name="product_id", nullable = false)
+    @EqualsAndHashCode.Exclude
     private Product product;
 
     @Column(name="batch_number", nullable = false)
@@ -77,4 +79,29 @@ public class GRNItem {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @Override
+    public String toString() {
+        return "GRNItem{" +
+                "deletedAt=" + deletedAt +
+                ", deletedBy=" + deletedBy +
+                ", isDeleted=" + isDeleted +
+                ", createdAt=" + createdAt +
+                ", updatedBy=" + updatedBy +
+                ", updatedAt=" + updatedAt +
+                ", mrpValue=" + mrpValue +
+                ", discountPercentage=" + discountPercentage +
+                ", discountValue=" + discountValue +
+                ", totalAmount=" + totalAmount +
+                ", quantity=" + quantity +
+                ", SellingPricePercentage=" + SellingPricePercentage +
+                ", packSize='" + packSize + '\'' +
+                ", bonus=" + bonus +
+                ", purchasePrice=" + purchasePrice +
+                ", expDate=" + expDate +
+                ", mfgDate=" + mfgDate +
+                ", batchNumber='" + batchNumber + '\'' +
+                ", id=" + id +
+                '}';
+    }
 }

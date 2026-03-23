@@ -20,4 +20,8 @@ public class GRNResponseDTO {
     private SupplierDTO supplier;
 
     private List<GRNItemResponseDTO> items;
+    private String paymentStatus;
+
+    private BigDecimal totalPaid;
+    private BigDecimal dueBalance;
 }

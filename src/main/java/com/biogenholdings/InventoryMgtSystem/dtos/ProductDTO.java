@@ -2,10 +2,13 @@ package com.biogenholdings.InventoryMgtSystem.dtos;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -33,9 +36,18 @@ public class ProductDTO {
 
     private Integer reorderLevel;
 
+    @JsonProperty("productID")
     private String itemCode;
 
     private String description;
+
+    private Integer openingBalance;
+
+    private BigDecimal SRepCommissionRate;
+
+    private BigDecimal sellingPrice;
+
+    private BigDecimal mrp;
 
     private String imageUrl;
 

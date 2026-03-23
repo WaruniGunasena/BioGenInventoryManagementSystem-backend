@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.controllers;
 
+import com.biogenholdings.InventoryMgtSystem.dtos.GRNPaymentDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.GRNRequestDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 import com.biogenholdings.InventoryMgtSystem.services.GRNService;
@@ -59,6 +60,12 @@ public class GRNController {
 
         Response response = grnService.softDeleteGRN(id, userId);
 
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
+
+    @PostMapping("/payment")
+    public ResponseEntity<Response> createGRNPayment(@RequestBody GRNPaymentDTO dto) {
+        Response response = grnService.createGRNPayment(dto);
         return ResponseEntity.status(response.getStatus()).body(response);
     }
 }

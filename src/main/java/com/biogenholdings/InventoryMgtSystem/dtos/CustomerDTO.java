@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -23,7 +24,6 @@ public class CustomerDTO {
     @NotBlank(message = "name is required")
     private String name;
 
-    @NotBlank(message = "email is required")
     private String email;
 
     private String contact_No;
@@ -36,5 +36,9 @@ public class CustomerDTO {
 
     private String creditPeriod;
 
+    private BigDecimal creditLimit;
+
     private LocalDateTime createdAt;
+
+    private Long userId;
 }

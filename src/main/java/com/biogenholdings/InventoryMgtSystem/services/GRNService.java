@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.services;
 
+import com.biogenholdings.InventoryMgtSystem.dtos.GRNPaymentDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.GRNRequestDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
 
@@ -18,5 +19,7 @@ public interface GRNService {
     Response updateGRN(Long id, GRNRequestDTO dto);
 
     Response softDeleteGRN(Long id, Long userId);
+
+    Response createGRNPayment(GRNPaymentDTO dto);
 
 }

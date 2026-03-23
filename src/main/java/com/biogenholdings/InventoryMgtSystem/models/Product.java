@@ -3,10 +3,9 @@ package com.biogenholdings.InventoryMgtSystem.models;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -44,16 +43,28 @@ public class Product {
     @Column(name = "pack_size")
     private String packSize;
 
+    private Integer openingBalance;
+
+    private BigDecimal SRepCommissionRate;
+
     @Column(name = "image_url")
     private String imageUrl;
 
     private Boolean isDeleted;
 
+    private BigDecimal mrp;
+
     @ManyToOne
     @JoinColumn(name = "deleted_by_id")
+    @EqualsAndHashCode.Exclude
     private User deletedBy;
 
     private LocalDateTime deletedAt;
+
+    // Inside Product.java
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL)
+    @EqualsAndHashCode.Exclude
+    private ProductStock productStock;
 
     @PreUpdate
     protected void onUpdate() {
@@ -71,6 +82,7 @@ public class Product {
 
     @ManyToOne
     @JoinColumn(name = "category_id")
+    @EqualsAndHashCode.Exclude
     private Category category;
 
     @Override

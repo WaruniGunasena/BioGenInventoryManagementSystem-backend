@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -30,6 +31,7 @@ public class GRNServiceImpl implements GRNService {
     private final ProductStockRepository productStockRepository;
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
+    private final GRNPaymentRepository grnPaymentRepository;
 
     @Override
     @Transactional
@@ -47,6 +49,7 @@ public class GRNServiceImpl implements GRNService {
                 .supplier(supplier)
                 .updatedBy(dto.getUserId())
                 .updatedAt(LocalDateTime.now())
+                .paymentStatus(dto.getPaymentStatus())
                 .isDeleted(false)
                 .deletedBy(null)
                 .deletedAt(null)
@@ -87,6 +90,9 @@ public class GRNServiceImpl implements GRNService {
             grn.getItems().add(grnItem);
             grnItemRepository.save(grnItem);
 
+            product.setMrp(itemDTO.getMrpValue());
+            productRepository.save(product);
+
             BigDecimal purchasePrice = itemDTO.getPurchasePrice();
             BigDecimal percentage = itemDTO.getSellingPricePercentage();
 
@@ -124,6 +130,7 @@ public class GRNServiceImpl implements GRNService {
                 productStockRepository.save(newStock);
             }
         }
+
 
         GRNResponseDTO grnResponseDTO = mapToDTO(grn);
 
@@ -357,12 +364,29 @@ public class GRNServiceImpl implements GRNService {
     }
 
     private GRNResponseDTO mapToDTO(GRN grn) {
+
+        GRNPayment latestPayment = grnPaymentRepository
+                .findTopByGrnIdOrderByIdDesc(grn.getId());
+
+        BigDecimal dueBalance;
+        BigDecimal totalPaid;
+
+        if (latestPayment != null) {
+            dueBalance = latestPayment.getDueBalance();
+            totalPaid = grn.getGrandTotal().subtract(dueBalance);
+        } else {
+            dueBalance = grn.getGrandTotal();
+            totalPaid = BigDecimal.ZERO;
+        }
         return GRNResponseDTO.builder()
                 .id(grn.getId())
                 .grnNumber(grn.getGrnNumber())
                 .invoiceNumber(grn.getInvoiceNumber())
                 .grnDate(grn.getGrnDate())
                 .grandTotal(grn.getGrandTotal())
+                .paymentStatus(grn.getPaymentStatus())
+                .dueBalance(dueBalance)
+                .totalPaid(totalPaid)
                 .supplier(SupplierDTO.builder()
                         .id(grn.getSupplier().getId())
                         .name(grn.getSupplier().getName())
@@ -448,5 +472,72 @@ public class GRNServiceImpl implements GRNService {
                 .status(204)
                 .message("Category Deleted Successfully")
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public Response createGRNPayment(GRNPaymentDTO dto) {
+        try {
+            GRN grn = grnRepository.findById(dto.getGrnId())
+                    .orElseThrow(() -> new NotFoundException("GRN not found with ID: " + dto.getGrnId()));
+
+            GRNPayment payment = new GRNPayment();
+            payment.setAmount(dto.getAmount() != null ? dto.getAmount() : BigDecimal.ZERO);
+            payment.setGrandTotal(dto.getGrandTotal() != null ? dto.getGrandTotal() : BigDecimal.ZERO); // <-- MUST set this
+            payment.setPaymentMethod(dto.getPaymentMethod());
+            payment.setGrn(grn);
+            payment.setCreatedBy(dto.getUserId());
+            payment.setCreatedAt(LocalDateTime.now());
+
+            String paymentMethod = dto.getPaymentMethod() != null ? dto.getPaymentMethod().trim() : "";
+
+            if (!"cash".equalsIgnoreCase(paymentMethod)) {
+                payment.setBank(dto.getBank() != null ? dto.getBank().trim() : null);
+                payment.setChequeNumber(dto.getChequeNumber() != null ? dto.getChequeNumber().trim() : null);
+
+                if (dto.getChequeIssueDate() != null && !dto.getChequeIssueDate().isBlank()) {
+                    payment.setChequeIssueDate(LocalDate.parse(dto.getChequeIssueDate().trim()));
+                }
+
+                if (dto.getChequeDueDate() != null && !dto.getChequeDueDate().isBlank()) {
+                    payment.setChequeDueDate(LocalDate.parse(dto.getChequeDueDate().trim()));
+                }
+            }
+
+            grnPaymentRepository.save(payment);
+
+            BigDecimal totalPaid = grnPaymentRepository
+                    .findByGrnId(dto.getGrnId())
+                    .stream()
+                    .map(GRNPayment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal dueBalance = grn.getGrandTotal().subtract(totalPaid);
+            dueBalance = dueBalance.max(BigDecimal.ZERO);
+            payment.setDueBalance(dueBalance);
+
+            if (dueBalance.compareTo(BigDecimal.ZERO) == 0) {
+                grn.setPaymentStatus("PAID");
+            } else if (dueBalance.compareTo(grn.getGrandTotal()) < 0) {
+                grn.setPaymentStatus("PARTIAL");
+            } else {
+                grn.setPaymentStatus("UNPAID");
+            }
+
+            grnPaymentRepository.save(payment);
+            grnRepository.save(grn);
+
+
+            return Response.builder()
+                    .status(200)
+                    .message("Payment recorded successfully")
+                    .build();
+
+        } catch (Exception e) {
+            return Response.builder()
+                    .status(500)
+                    .message("Failed to create GRN payment: " + e.getMessage())
+                    .build();
+        }
     }
 }

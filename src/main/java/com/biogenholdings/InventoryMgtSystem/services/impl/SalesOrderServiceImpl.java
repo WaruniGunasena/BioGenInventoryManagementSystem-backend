@@ -1,7 +1,9 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.*;
+import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
+import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.*;
 import com.biogenholdings.InventoryMgtSystem.repositories.*;
 import com.biogenholdings.InventoryMgtSystem.services.SalesOrderService;
@@ -14,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +33,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final ProductStockRepository productStockRepository;
     private final CustomerRepository customerRepository;
     private final InvoiceSequenceRepository invoiceSequenceRepository;
+    private final UserRepository userRepository;
     private final UserService userService;
 
     @Override
@@ -58,12 +62,18 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         User salesRep = new User();
         salesRep.setId(request.getUserId());
+
+        User userRole = userRepository.findById(request.getUserId())
+                .orElseThrow(()-> new RuntimeException("Sales Rep not found"));
         SalesOrder order = SalesOrder.builder()
                 .invoiceNumber(invoiceNumber)
                 .customer(customer)
                 .user(salesRep)
                 .invoiceDate(request.getDate())
                 .grandTotal(request.getGrandTotal())
+                .isDeleted(false)
+                .status(userRole.getRole() == UserRole.SALES_REP ?
+                        SalesOrderStatus.Pending : SalesOrderStatus.Approved)
                 .build();
 
         List<SalesOrderItem> items = new ArrayList<>();
@@ -151,6 +161,191 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .build();
     }
 
+    @Override
+    public Response softDeleteSalesOrder(Long salesOrderId, Long userId) {
+        SalesOrder salesOrder = salesOrderRepository.findById(salesOrderId)
+                .orElseThrow(() -> new NotFoundException("Sales Order Not Found"));
+        if (salesOrder.getStatus() == SalesOrderStatus.Approved) {
+            throw new RuntimeException("Cannot delete approved orders");
+        }
+
+        // ✅ Prevent double delete
+        if (Boolean.TRUE.equals(salesOrder.getIsDeleted())) {
+            throw new RuntimeException("Sales Order already deleted");
+        }
+
+        // ✅ Restore stock
+        for (SalesOrderItem item : salesOrder.getItems()) {
+
+            ProductStock stock = productStockRepository.findByProductId(item.getProduct().getId())
+                    .orElseThrow(() -> new RuntimeException("Stock not found for product: " + item.getProduct().getName()));
+
+            stock.setTotalQuantity(
+                    stock.getTotalQuantity() + item.getQuantity()
+            );
+
+            productStockRepository.save(stock);
+        }
+
+        // ✅ Set delete fields
+        User user = new User();
+        user.setId(userId);
+
+        salesOrder.setIsDeleted(true);
+        salesOrder.setDeletedBy(user);
+        salesOrder.setDeletedAt(LocalDateTime.now());
+
+        // ✅ Update status
+        salesOrder.setStatus(SalesOrderStatus.Deleted);
+
+        salesOrderRepository.save(salesOrder);
+
+        return Response.builder()
+                .status(200)
+                .message("Sales Order deleted successfully and stock restored")
+                .build();
+
+
+    }
+
+    @Override
+    @Transactional
+    public SalesOrderResponseDTO updateSalesOrder(Long orderId, SalesOrderRequestDTO request, Long userId) {
+
+        SalesOrder order = salesOrderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Sales Order not found"));
+
+        // ✅ Check if deleted
+        if (Boolean.TRUE.equals(order.getIsDeleted())) {
+            throw new RuntimeException("Cannot edit deleted order");
+        }
+
+        // ✅ Check status
+        if (order.getStatus() != SalesOrderStatus.Pending) {
+            throw new RuntimeException("Only PENDING orders can be edited");
+        }
+
+        // ✅ Check user exists (you didn’t use role yet — optional)
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // ============================================
+        // 🔥 STEP 1: RESTORE OLD STOCK
+        // ============================================
+        for (SalesOrderItem oldItem : order.getItems()) {
+
+            ProductStock stock = productStockRepository
+                    .findByProductId(oldItem.getProduct().getId())
+                    .orElseThrow(() -> new RuntimeException("Stock not found"));
+
+            stock.setTotalQuantity(
+                    stock.getTotalQuantity() + oldItem.getQuantity()
+            );
+
+            productStockRepository.save(stock);
+        }
+
+        // ============================================
+        // 🔥 STEP 2: CLEAR OLD ITEMS (IMPORTANT)
+        // ============================================
+        order.getItems().clear();
+
+        // ============================================
+        // 🔥 STEP 3: ADD UPDATED ITEMS (CORRECT WAY)
+        // ============================================
+        for (SalesOrderItemRequestDTO itemReq : request.getItems()) {
+
+            Product product = productRepository.findById(itemReq.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Product not found"));
+
+            ProductStock stock = productStockRepository.findByProductId(product.getId())
+                    .orElseThrow(() -> new RuntimeException("Stock not found"));
+
+            // ✅ Check stock
+            if (stock.getTotalQuantity() < itemReq.getQuantity()) {
+                throw new RuntimeException("Insufficient stock for product: " + product.getName());
+            }
+
+            // ✅ Deduct stock
+            stock.setTotalQuantity(
+                    stock.getTotalQuantity() - itemReq.getQuantity()
+            );
+
+            productStockRepository.save(stock);
+
+            // ✅ Create item
+            SalesOrderItem newItem = SalesOrderItem.builder()
+                    .salesOrder(order) // 🔥 MUST
+                    .product(product)
+                    .quantity(itemReq.getQuantity())
+                    .sellingPrice(itemReq.getSellingPrice())
+                    .totalAmount(itemReq.getTotalAmount())
+                    .discountPercent(itemReq.getDiscountPercent())
+                    .discountedPrice(itemReq.getDiscountedPrice())
+                    .unit(itemReq.getUnit())
+                    .build();
+
+            // ✅ ADD to existing list (DO NOT replace list)
+            order.getItems().add(newItem);
+        }
+
+        // ============================================
+        // 🔥 STEP 4: UPDATE ORDER
+        // ============================================
+        order.setGrandTotal(request.getGrandTotal());
+
+        salesOrderRepository.save(order);
+
+        return mapToDTO(order);
+    }
+
+    @Override
+    public Response approveSalesOrder(SalesOrderStatus salesOrderStatus, Long userId, Long salesOrderId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User Not Found"));
+
+        if(user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.INVENTORY_MANAGER){
+            throw new RuntimeException("Unauthorized to approve");
+        }
+
+        SalesOrder salesOrder = salesOrderRepository.findById(salesOrderId)
+                .orElseThrow(() -> new NotFoundException("Order Not Found"));
+
+        if (salesOrderStatus == SalesOrderStatus.Rejected) {
+            // We only restore stock if it wasn't already rejected or cancelled
+            if (salesOrder.getStatus() == SalesOrderStatus.Approved || salesOrder.getStatus() == SalesOrderStatus.Pending) {
+                for (SalesOrderItem item : salesOrder.getItems()) {
+                    ProductStock stock = productStockRepository.findByProductId(item.getProduct().getId())
+                            .orElseThrow(() -> new RuntimeException("Stock not found for product: " + item.getProduct().getName()));
+
+                    // Add the quantity back to the total_quantity column
+                    stock.setTotalQuantity(stock.getTotalQuantity() + item.getQuantity());
+                    productStockRepository.save(stock);
+                }
+            }
+        }
+
+        salesOrder.setStatus(salesOrderStatus);
+        salesOrder.setApprovedBy(user);
+        salesOrder.setApprovedAt(LocalDateTime.now());
+
+        String message = (salesOrderStatus == SalesOrderStatus.Rejected)
+                ? "Sales order has been rejected and stock has been restored."
+                : "Sales order approved successfully.";
+
+        return Response.builder()
+                .status(200)
+                .message(message)
+                .build();
+    }
+
+    @Override
+    public Long pendingSalesOrderCount() {
+
+        return salesOrderRepository.countByStatusAndIsDeletedFalse(SalesOrderStatus.Pending);
+    }
+
+
     private SalesOrderResponseDTO mapToDTO(SalesOrder order) {
 
         return SalesOrderResponseDTO.builder()
@@ -159,6 +354,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .invoiceDate(order.getInvoiceDate())
                 .creditTerm(order.getCustomer().getCreditPeriod())
                 .grandTotal(order.getGrandTotal())
+                .status(order.getStatus())
 
                 .customer(CustomerDTO.builder()
                         .id(order.getCustomer().getId())

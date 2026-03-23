@@ -22,6 +22,7 @@ public class ProductStock {
 
     @OneToOne
     @JoinColumn(name = "product_id", nullable = false, unique = true)
+    @EqualsAndHashCode.Exclude
     private Product product;
 
     @Column(name = "total_quantity", nullable = false)
@@ -45,5 +46,16 @@ public class ProductStock {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    @Override
+    public String toString() {
+        return "ProductStock{" +
+                "id=" + id +
+                ", totalQuantity=" + totalQuantity +
+                ", sellingPrice=" + sellingPrice +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
+                '}';
     }
 }

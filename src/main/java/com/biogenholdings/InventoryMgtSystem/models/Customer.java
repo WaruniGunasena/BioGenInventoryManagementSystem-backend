@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -38,12 +39,26 @@ public class Customer {
 
     private String creditPeriod;
 
+    private BigDecimal creditLimit;
+
     private Boolean isDeleted;
 
     @ManyToOne
     private User deletedBy;
 
     private LocalDateTime deletedAt;
+
+    @ManyToOne
+    @JoinColumn(name = "updated_by")
+    private User updatedBy;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -57,13 +72,18 @@ public class Customer {
     @Override
     public String toString() {
         return "Customer{" +
-                "Id=" + id +
-                ", Name='" + name + '\'' +
+                "id=" + id +
+                ", name='" + name + '\'' +
                 ", email='" + email + '\'' +
                 ", contact_No='" + contact_No + '\'' +
                 ", address='" + address + '\'' +
                 ", province='" + province + '\'' +
                 ", postalCode='" + postalCode + '\'' +
+                ", creditPeriod='" + creditPeriod + '\'' +
+                ", creditLimit=" + creditLimit +
+                ", isDeleted=" + isDeleted +
+                ", deletedBy=" + deletedBy +
+                ", deletedAt=" + deletedAt +
                 ", createdAt=" + createdAt +
                 '}';
     }
