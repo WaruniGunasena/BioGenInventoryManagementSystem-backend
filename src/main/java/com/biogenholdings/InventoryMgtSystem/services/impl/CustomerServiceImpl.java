@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -33,11 +34,14 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public Response addCustomer(CustomerDTO customerDTO) {
 
-        if(customerRepository.existsByEmail(customerDTO.getEmail())){
-            return Response.builder()
-                    .status(409)
-                    .message("Email already Exists")
-                    .build();
+        if (customerDTO.getEmail() != null && !customerDTO.getEmail().trim().isEmpty()) {
+
+            if (customerRepository.existsByEmail(customerDTO.getEmail())) {
+                return Response.builder()
+                        .status(409)
+                        .message("Email already Exists")
+                        .build();
+            }
         }
 
         Customer customerToSave = Customer.builder()
@@ -106,27 +110,47 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public Response updateCustomer(Long CustomerId, CustomerDTO customerDTO) {
-        Customer customer = customerRepository.findById(CustomerId)
-                .orElseThrow(()-> new NotFoundException("Customer Not found"));
+    public Response updateCustomer(Long customerId, CustomerDTO customerDTO) {
 
-        if(customerDTO.getName() != null){
-            customer.setName(customer.getName());
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer Not found"));
+
+        if (customerDTO.getName() != null) {
+            customer.setName(customerDTO.getName());
         }
-        if(customerDTO.getAddress() != null){
-            customer.setAddress(customer.getAddress());
+
+        if (customerDTO.getEmail() != null) {
+            customer.setEmail(customerDTO.getEmail());
         }
-        if(customerDTO.getEmail() != null){
-            customer.setEmail(customer.getEmail());
+
+        if (customerDTO.getContact_No() != null) {
+            customer.setContact_No(customerDTO.getContact_No());
         }
-        if(customerDTO.getContact_No() != null){
-            customer.setContact_No(customer.getContact_No());
+
+        if (customerDTO.getAddress() != null) {
+            customer.setAddress(customerDTO.getAddress());
         }
-        if(customerDTO.getPostalCode() != null){
-            customer.setPostalCode(customer.getPostalCode());
+
+        if (customerDTO.getProvince() != null) {
+            customer.setProvince(customerDTO.getProvince());
         }
-        if(customerDTO.getProvince() != null){
-            customer.setProvince(customer.getProvince());
+
+        if (customerDTO.getPostalCode() != null) {
+            customer.setPostalCode(customerDTO.getPostalCode());
+        }
+
+        if (customerDTO.getCreditPeriod() != null) {
+            customer.setCreditPeriod(customerDTO.getCreditPeriod());
+        }
+
+        if (customerDTO.getCreditLimit() != null) {
+            customer.setCreditLimit(customerDTO.getCreditLimit());
+        }
+
+        if (customerDTO.getUserId() != null) {
+            User user = userRepository.findById(customerDTO.getUserId())
+                    .orElseThrow(() -> new NotFoundException("User Not Found"));
+            customer.setUpdatedBy(user);
         }
 
         customerRepository.save(customer);
@@ -152,23 +176,25 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public Response softDeleteCustomer(Long customerId, Long userId) {
+
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(()-> new NotFoundException("Customer not found"));
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(()-> new NotFoundException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         customer.setDeletedBy(user);
+        customer.setDeletedAt(LocalDateTime.now());
         customer.setIsDeleted(true);
-        customer.setEmail("");
 
         customerRepository.save(customer);
 
         return Response.builder()
-                .status(204)
-                .message("Customer deleted Successfully")
+                .status(200)
+                .message("Customer deleted successfully")
                 .build();
     }
+
 
     @Override
     public Response searchCustomer(String name) {

@@ -18,4 +18,5 @@ public class StockResponseDTO {
     private BigDecimal sellingPrice;
     private Integer minimumStockLevel;
     private Integer reorderLevel;
+    private String itemCode;
 }

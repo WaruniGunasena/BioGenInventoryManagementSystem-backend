@@ -48,6 +48,18 @@ public class Customer {
 
     private LocalDateTime deletedAt;
 
+    @ManyToOne
+    @JoinColumn(name = "updated_by")
+    private User updatedBy;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     @PrePersist
