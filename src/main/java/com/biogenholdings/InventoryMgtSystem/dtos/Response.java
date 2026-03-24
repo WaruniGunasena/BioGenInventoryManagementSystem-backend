@@ -50,4 +50,7 @@ public class Response {
 
     private final LocalDateTime timestamp = LocalDateTime.now();
 
+    private List<CreditDTO> credits;
+    private List<DebitDTO> debits;
+
 }

@@ -37,7 +37,9 @@ public class GRN {
     private Supplier supplier;
 
     @Builder.Default
-    @OneToMany(mappedBy = "grn", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "grn", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private List<GRNItem> items = new ArrayList<>();
 
     @Column(name="created_at")
