@@ -37,8 +37,7 @@ public class GRN {
     private Supplier supplier;
 
     @Builder.Default
-    @OneToMany(mappedBy = "grn", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @ToString.Exclude
+    @OneToMany(mappedBy = "grn", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @EqualsAndHashCode.Exclude
     private List<GRNItem> items = new ArrayList<>();
 
@@ -70,4 +69,24 @@ public class GRN {
 
     @Column(name = "payment_status")
     private String paymentStatus;
+
+    @Override
+    public String toString() {
+        return "GRN{" +
+                "id=" + id +
+                ", grnNumber='" + grnNumber + '\'' +
+                ", invoiceNumber='" + invoiceNumber + '\'' +
+                ", grnDate=" + grnDate +
+                ", grandTotal=" + grandTotal +
+                ", supplier=" + supplier +
+                ", createdAt=" + createdAt +
+                ", userId=" + userId +
+                ", updatedAt=" + updatedAt +
+                ", isDeleted=" + isDeleted +
+                ", updatedBy=" + updatedBy +
+                ", deletedBy=" + deletedBy +
+                ", deletedAt=" + deletedAt +
+                ", paymentStatus='" + paymentStatus + '\'' +
+                '}';
+    }
 }

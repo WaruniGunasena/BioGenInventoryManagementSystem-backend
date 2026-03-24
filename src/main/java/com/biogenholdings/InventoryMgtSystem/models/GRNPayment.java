@@ -62,4 +62,26 @@ public class GRNPayment {
 
     private LocalDateTime deletedAt;
 
+    @Override
+    public String toString() {
+        return "GRNPayment{" +
+                "id=" + id +
+                ", amount=" + amount +
+                ", paymentMethod='" + paymentMethod + '\'' +
+                ", grandTotal=" + grandTotal +
+                ", bank='" + bank + '\'' +
+                ", chequeNumber='" + chequeNumber + '\'' +
+                ", dueBalance=" + dueBalance +
+                ", chequeIssueDate=" + chequeIssueDate +
+                ", chequeDueDate=" + chequeDueDate +
+                ", createdBy=" + createdBy +
+                ", createdAt=" + createdAt +
+                ", updatedBy=" + updatedBy +
+                ", updatedAt=" + updatedAt +
+                ", isDeleted=" + isDeleted +
+                ", deletedBy=" + deletedBy +
+                ", deletedAt=" + deletedAt +
+                '}';
+    }
+
 }
