@@ -1,10 +1,8 @@
 package com.biogenholdings.InventoryMgtSystem.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -45,6 +43,9 @@ public class GRNPayment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "grn_id", nullable = false)
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private GRN grn;
 
     private Long createdBy;
