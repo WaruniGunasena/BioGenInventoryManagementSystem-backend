@@ -38,4 +38,12 @@ public class ReportServiceImpl implements IReportService {
         return PdfGeneratorUtility.createPdf(strategy.getReportName(), data);
     }
 
+    @Override
+    public List<Map<String, Object>> getReportRawData(String reportType, Map<String, String> params) {
+        ReportStrategy strategy = reportStrategies.get(reportType.toUpperCase());
+        if (strategy == null) throw new RuntimeException("Dashboard component not found");
+
+        return strategy.getReportData(params);
+    }
+
 }

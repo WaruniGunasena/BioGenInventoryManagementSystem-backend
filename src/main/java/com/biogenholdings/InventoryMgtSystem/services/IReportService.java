@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.services;
 
+import java.util.List;
 import java.util.Map;
 
 public interface IReportService {
@@ -10,4 +11,7 @@ public interface IReportService {
      * @return byte array of the generated PDF
      */
     byte[] generatePdfReport(String reportType, Map<String, String> params);
+
+    // NEW: For Dashboards/JSON
+    List<Map<String, Object>> getReportRawData(String reportType, Map<String, String> params);
 }
