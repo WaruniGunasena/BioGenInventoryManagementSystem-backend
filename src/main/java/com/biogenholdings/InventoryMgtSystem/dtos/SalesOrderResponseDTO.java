@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.dtos;
 
+import com.biogenholdings.InventoryMgtSystem.enums.DiscountTypeEnum;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,6 +25,7 @@ public class SalesOrderResponseDTO {
     private BigDecimal discountPercent;
     private BigDecimal discountAmount;
     private BigDecimal grandTotal;
+    private BigDecimal netTotal;
 
     private CustomerDTO customer;
 
@@ -32,6 +34,12 @@ public class SalesOrderResponseDTO {
     private Long userId;
 
     private SalesOrderStatus status;
+
+    private BigDecimal additionalDiscountValue;
+
+    private BigDecimal courierCharges;
+
+    private DiscountTypeEnum additionalDiscountType;
 
     private List<SalesOrderItemResponseDTO> items;
 }
