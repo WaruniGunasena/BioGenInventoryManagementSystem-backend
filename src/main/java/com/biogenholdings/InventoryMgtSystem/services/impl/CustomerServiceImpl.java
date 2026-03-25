@@ -186,6 +186,7 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setDeletedBy(user);
         customer.setDeletedAt(LocalDateTime.now());
         customer.setIsDeleted(true);
+        customer.setEmail(customer.getEmail() + "_deleted_" + System.currentTimeMillis());
 
         customerRepository.save(customer);
 

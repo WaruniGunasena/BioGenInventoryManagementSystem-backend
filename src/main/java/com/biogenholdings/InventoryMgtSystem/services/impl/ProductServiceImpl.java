@@ -150,7 +150,7 @@ public class ProductServiceImpl implements ProductService {
         if(categoryID != null){
             productList = productRepository.findByCategoryIdAndIsDeletedFalse(categoryID);
         }else {
-            productList = productRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.ASC, "id"));
+            productList = productRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.ASC, "name"));
         }
         List<ProductDTO> productDTOList = modelMapper.map(productList, new TypeToken<List<ProductDTO>>() {}.getType());
 

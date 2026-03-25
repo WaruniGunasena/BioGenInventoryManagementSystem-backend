@@ -1,6 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.*;
+import com.biogenholdings.InventoryMgtSystem.enums.DiscountTypeEnum;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
@@ -16,6 +17,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.ArrayList;
@@ -72,8 +75,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .invoiceDate(request.getDate())
                 .grandTotal(request.getGrandTotal())
                 .isDeleted(false)
-                .status(userRole.getRole() == UserRole.SALES_REP ?
-                        SalesOrderStatus.Pending : SalesOrderStatus.Approved)
+                .status(SalesOrderStatus.Pending)
+                .creditTerm(customer.getCreditPeriod())
+                .additionalDiscount(request.getAdditionalDiscountValue())
+                .courierCharges(request.getCourierCharges())
+                .additionalDiscountType(request.getAdditionalDiscountType())
                 .build();
 
         List<SalesOrderItem> items = new ArrayList<>();
@@ -292,6 +298,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         // ============================================
         // 🔥 STEP 4: UPDATE ORDER
         // ============================================
+        order.setAdditionalDiscount(request.getAdditionalDiscountValue());
+        order.setAdditionalDiscountType(request.getAdditionalDiscountType());
+        order.setCourierCharges(request.getCourierCharges());
         order.setGrandTotal(request.getGrandTotal());
 
         salesOrderRepository.save(order);
@@ -354,7 +363,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .invoiceDate(order.getInvoiceDate())
                 .creditTerm(order.getCustomer().getCreditPeriod())
                 .grandTotal(order.getGrandTotal())
+                .courierCharges(order.getCourierCharges())
+                .additionalDiscountValue(order.getAdditionalDiscount())
+                .additionalDiscountType(order.getAdditionalDiscountType())
                 .status(order.getStatus())
+                .netTotal(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType()))
 
                 .customer(CustomerDTO.builder()
                         .id(order.getCustomer().getId())
@@ -367,6 +380,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .user(UserDTO.builder()
                         .id(order.getUser().getId())
                         .name(order.getUser().getName())
+                        .role(order.getUser().getRole())
                         .build())
 
                 .items(order.getItems() == null ? List.of() :
@@ -375,7 +389,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                         .id(item.getId())
                                         .quantity(item.getQuantity())
                                         .sellingPrice(item.getSellingPrice())
-                                        .totalAmount(item.getTotalAmount())
+                                        .totalAmount(item.getSellingPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                                         .discountPercent(item.getDiscountPercent())
                                         .discountedPrice(item.getDiscountedPrice())
                                         .unit(item.getUnit())
@@ -388,4 +402,30 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                 .toList())
                 .build();
     }
+
+    private BigDecimal calculateNetTotal(
+            BigDecimal grandTotal,
+            BigDecimal courierCharges,
+            BigDecimal discountValue,
+            DiscountTypeEnum discountType
+    ) {
+        if (grandTotal == null) grandTotal = BigDecimal.ZERO;
+        if (courierCharges == null) courierCharges = BigDecimal.ZERO;
+        if (discountValue == null) discountValue = BigDecimal.ZERO;
+
+        BigDecimal discountAmount = BigDecimal.ZERO;
+
+        if (discountType == DiscountTypeEnum.cash) {
+            discountAmount = discountValue;
+        } else if (discountType == DiscountTypeEnum.percentage) {
+            discountAmount = grandTotal
+                    .multiply(discountValue)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        }
+
+        return grandTotal
+                .add(courierCharges)
+                .subtract(discountAmount);
+    }
+
 }

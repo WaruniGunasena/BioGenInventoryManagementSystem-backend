@@ -133,6 +133,7 @@ public class SupplierServiceImpl implements SupplierService{
 
         supplier.setIsDeleted(true);
         supplier.setDeletedBy(user);
+        supplier.setEmail(supplier.getEmail() + "_deleted_" + System.currentTimeMillis());
 
         supplierRepository.save(supplier);
 
