@@ -17,7 +17,8 @@ public class CorsConfig {
                 registry.addMapping("/**")
                         .allowedOrigins("http://localhost:3000",
                                 "http://inventory-app-biogeninventory.s3-website.eu-north-1.amazonaws.com",
-                                "https://d24uctmi3dzgis.cloudfront.net/")    // allow all origins
+                                "https://d24uctmi3dzgis.cloudfront.net/",
+                                "http://inventory.biogenholdings.com")    // allow all origins
 //                        .allowedOrigins("*")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
