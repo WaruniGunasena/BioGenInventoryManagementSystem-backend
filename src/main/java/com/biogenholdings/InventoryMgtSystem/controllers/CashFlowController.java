@@ -28,4 +28,13 @@ public class CashFlowController {
         Response pendingCashFlow = cashFlowService.getPendingCredits(startDate, endDate);
         return ResponseEntity.ok(pendingCashFlow);
     }
+
+    @GetMapping("/completed")
+    public ResponseEntity<Response> getCompletedCashFlow(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        Response completedCashFlow = cashFlowService.getCompletedCashFlow(startDate, endDate);
+        return ResponseEntity.ok(completedCashFlow);
+    }
 }

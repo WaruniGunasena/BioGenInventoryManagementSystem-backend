@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -85,6 +86,32 @@ public class CashFlowServiceImpl implements CashFlowService {
                 .amount(dueAmount)
                 .date(displayDate)
                 .invoiceNumber(grn.getInvoiceNumber())
+                .build();
+    }
+
+    @Override
+    public Response getCompletedCashFlow(LocalDate startDate, LocalDate endDate) {
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        List<GRNPayment> payments = grnPaymentRepository
+                .findCompletedPayments(startDateTime, endDateTime);
+
+        List<CreditDTO> credits = payments.stream()
+                .map(payment -> CreditDTO.builder()
+                        .grnId(payment.getGrn().getId())
+                        .supplier(payment.getGrn().getSupplier().getName())
+                        .invoiceNumber(payment.getGrn().getInvoiceNumber())
+                        .amount(payment.getAmount())
+                        .date(payment.getCreatedAt().toLocalDate()) // only date for UI
+                        .build()
+                )
+                .collect(Collectors.toList());
+
+        return Response.builder()
+                .credits(credits)
+                .debits(Collections.emptyList())
                 .build();
     }
 }
