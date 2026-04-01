@@ -85,5 +85,8 @@ public class SalesOrder {
     @Enumerated(EnumType.STRING)
     private DiscountTypeEnum additionalDiscountType;
 
+    @Column(name = "payment_status")
+    private String paymentStatus;
+
 
 }

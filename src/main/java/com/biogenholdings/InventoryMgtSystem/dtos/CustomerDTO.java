@@ -41,4 +41,6 @@ public class CustomerDTO {
     private LocalDateTime createdAt;
 
     private Long userId;
+
+    private BigDecimal totalDue;
 }
