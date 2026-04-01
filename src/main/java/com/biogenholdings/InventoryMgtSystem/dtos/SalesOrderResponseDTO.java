@@ -42,4 +42,9 @@ public class SalesOrderResponseDTO {
     private DiscountTypeEnum additionalDiscountType;
 
     private List<SalesOrderItemResponseDTO> items;
+
+    private BigDecimal totalPaid;
+    private BigDecimal dueBalance;
+
+    private String paymentStatus;
 }
