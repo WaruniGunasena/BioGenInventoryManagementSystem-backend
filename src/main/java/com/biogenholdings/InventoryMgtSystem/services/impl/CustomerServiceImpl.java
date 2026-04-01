@@ -45,7 +45,9 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         Customer customerToSave = Customer.builder()
-                .email(customerDTO.getEmail())
+                .email( customerDTO.getEmail() == null || customerDTO.getEmail().isBlank()
+                        ? null
+                        : customerDTO.getEmail())
                 .address(customerDTO.getAddress())
                 .name(customerDTO.getName())
                 .postalCode(customerDTO.getPostalCode())
@@ -120,7 +122,9 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         if (customerDTO.getEmail() != null) {
-            customer.setEmail(customerDTO.getEmail());
+            // If user sends "", we set it to NULL to avoid duplicate key errors
+            String email = customerDTO.getEmail().trim();
+            customer.setEmail(email.isEmpty() ? null : email);
         }
 
         if (customerDTO.getContact_No() != null) {

@@ -292,6 +292,14 @@ public class ProductServiceImpl implements ProductService {
 
         List<ProductDTO> ProductDTOList = modelMapper.map(productList, new TypeToken<List<ProductDTO>>() {}.getType());
 
+        for (int i = 0; i < productList.size(); i++) {
+            Product entity = productList.get(i);
+            ProductDTO dto = ProductDTOList.get(i);
+
+            if (entity.getProductStock() != null) {
+                dto.setSellingPrice(entity.getProductStock().getSellingPrice());
+            }
+        }
         return Response.builder()
                 .status(200)
                 .message("Success")

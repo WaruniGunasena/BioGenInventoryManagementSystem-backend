@@ -375,6 +375,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         .contact_No(order.getCustomer().getContact_No())
                         .email(order.getCustomer().getEmail())
                         .address(order.getCustomer().getAddress())
+                        .creditLimit(order.getCustomer().getCreditLimit())
                         .build())
 
                 .user(UserDTO.builder()
