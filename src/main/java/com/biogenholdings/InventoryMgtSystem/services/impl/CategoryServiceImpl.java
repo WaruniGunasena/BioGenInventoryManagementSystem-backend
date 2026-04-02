@@ -130,7 +130,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public Response searchCategory(String searchKey) {
-        List<Category> categories = categoryRepository.findByNameContainingOrDescriptionContaining(searchKey,searchKey);
+        List<Category> categories = categoryRepository.findByNameContainingAndIsDeletedFalseOrDescriptionContainingAndIsDeletedFalse(searchKey,searchKey);
 
         List<CategoryDTO> categoryDTOList = modelMapper.map(categories, new TypeToken<List<CategoryDTO>>() {}.getType());
 

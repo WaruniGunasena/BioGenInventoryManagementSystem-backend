@@ -146,7 +146,7 @@ public class SupplierServiceImpl implements SupplierService{
     @Override
     public Response searchSupplier(String searchKey) {
 
-        List<Supplier> suppliers = supplierRepository.findByNameContaining(searchKey);
+        List<Supplier> suppliers = supplierRepository.findByNameContainingAndIsDeletedFalse(searchKey);
 
         List<SupplierDTO> supplierDTOList = modelMapper.map(suppliers, new TypeToken<List<SupplierDTO>>() {}.getType());
 
