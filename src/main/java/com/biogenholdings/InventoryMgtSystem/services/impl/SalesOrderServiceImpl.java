@@ -131,6 +131,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         .build())
                 .collect(Collectors.toList());
 
+        customer.setDueBalance(customer.getDueBalance().add(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType())));
+        customerRepository.save(customer);
         return SalesOrderResponseDTO.builder()
                 .invoiceNumber(invoiceNumber)
                 .grandTotal(order.getGrandTotal())
@@ -369,17 +371,24 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .map(SalesOrderPayment::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            BigDecimal dueBalance = order.getGrandTotal().subtract(totalPaid);
+            BigDecimal dueBalance = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType()).subtract(totalPaid);
             dueBalance = dueBalance.max(BigDecimal.ZERO);
             payment.setDueBalance(dueBalance);
 
             if (dueBalance.compareTo(BigDecimal.ZERO) == 0) {
                 order.setPaymentStatus("PAID");
-            } else if (dueBalance.compareTo(order.getGrandTotal()) < 0) {
+            } else if (dueBalance.compareTo(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType())) < 0) {
                 order.setPaymentStatus("PARTIAL");
             } else {
                 order.setPaymentStatus("UNPAID");
             }
+
+            Customer customer = customerRepository.findById(order.getCustomer().getId())
+                    .orElseThrow(() -> new NotFoundException("Customer not found"));
+
+            customer.setDueBalance(customer.getDueBalance().subtract(dto.getAmount()));
+
+            customerRepository.save(customer);
 
             salesOrderPaymentRepository.save(payment);
             salesOrderRepository.save(order);
@@ -409,9 +418,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         if (latestPayment != null) {
             dueBalance = latestPayment.getDueBalance();
-            totalPaid = order.getGrandTotal().subtract(dueBalance);
+            totalPaid = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType()).subtract(dueBalance);
         } else {
-            dueBalance = order.getGrandTotal();
+            dueBalance = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType());
             totalPaid = BigDecimal.ZERO;
         }
 

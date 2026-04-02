@@ -69,6 +69,8 @@ public class Customer {
 
     }
 
+    private BigDecimal dueBalance;
+
     @Override
     public String toString() {
         return "Customer{" +

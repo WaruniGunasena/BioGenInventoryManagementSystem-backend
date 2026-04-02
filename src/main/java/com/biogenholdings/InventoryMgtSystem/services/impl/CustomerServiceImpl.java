@@ -61,6 +61,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .province(customerDTO.getProvince())
                 .creditPeriod(customerDTO.getCreditPeriod())
                 .creditLimit(customerDTO.getCreditLimit())
+                .dueBalance(BigDecimal.valueOf(0))
                 .build();
 
         customerRepository.save(customerToSave);
