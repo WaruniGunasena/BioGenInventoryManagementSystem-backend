@@ -43,4 +43,6 @@ public class CustomerDTO {
     private Long userId;
 
     private BigDecimal totalDue;
+
+    private BigDecimal dueBalance;
 }
