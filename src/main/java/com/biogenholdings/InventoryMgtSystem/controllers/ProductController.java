@@ -65,8 +65,8 @@ public class ProductController {
             @RequestParam(value = "packSize", required = false) String packSize,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "openingBalance", required = false, defaultValue = "0") Integer openingBalance,
-            @RequestParam(value = "mrp") BigDecimal mrp,
-            @RequestParam(value = "sRepCommissionRate") BigDecimal sRepCommissionRate
+            @RequestParam(value = "mrp", required = false) BigDecimal mrp,
+            @RequestParam(value = "sRepCommissionRate", required = false) BigDecimal sRepCommissionRate
     ) {
         ProductDTO productDTO = new ProductDTO();
         productDTO.setId(id);
