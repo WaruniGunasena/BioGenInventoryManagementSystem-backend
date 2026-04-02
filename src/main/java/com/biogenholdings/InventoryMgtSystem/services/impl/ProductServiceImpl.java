@@ -150,7 +150,7 @@ public class ProductServiceImpl implements ProductService {
         if(categoryID != null){
             productList = productRepository.findByCategoryIdAndIsDeletedFalse(categoryID);
         }else {
-            productList = productRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.ASC, "id"));
+            productList = productRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.ASC, "name"));
         }
         List<ProductDTO> productDTOList = modelMapper.map(productList, new TypeToken<List<ProductDTO>>() {}.getType());
 
@@ -215,13 +215,24 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public Response searchProduct(String searchKey) {
-        List<Product> products = productRepository.findByNameContainingOrDescriptionContaining(searchKey, searchKey);
+
+        List<Product> products = productRepository.searchActiveProducts(searchKey);
 
         if (products.isEmpty()) {
             throw new NotFoundException("Product Not Found");
         }
 
-        List<ProductDTO> productDTOList = modelMapper.map(products, new TypeToken<List<ProductDTO>>() {}.getType());
+        List<ProductDTO> productDTOList =
+                modelMapper.map(products, new TypeToken<List<ProductDTO>>() {}.getType());
+
+        for (int i = 0; i < products.size(); i++) {
+            Product entity = products.get(i);
+            ProductDTO dto = productDTOList.get(i);
+
+            if (entity.getProductStock() != null) {
+                dto.setSellingPrice(entity.getProductStock().getSellingPrice());
+            }
+        }
 
         return Response.builder()
                 .status(200)
@@ -277,29 +288,38 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public Response getPaginatedProducts(Integer page, Integer size, FilterEnum filter, Long categoryID) {
-        Pageable pageable = PageRequest.of(page,size,getSortByFilter(filter));
+    public Response getPaginatedProducts(Integer page,
+                                         Integer size,
+                                         FilterEnum filter,
+                                         Long categoryID,
+                                         String searchKey) {
 
-        Page<Product> productPage;
+        Pageable pageable = PageRequest.of(page, size, getSortByFilter(filter));
 
-        if (categoryID != null && categoryID > 0) {
-            productPage = productRepository.findByCategoryIdAndIsDeletedFalse(categoryID, pageable);
-        } else {
-            productPage = productRepository.findByIsDeletedFalse(pageable);
-        }
+        Page<Product> productPage =
+                productRepository.filterProducts(searchKey, categoryID, pageable);
 
         List<Product> productList = productPage.getContent();
 
-        List<ProductDTO> ProductDTOList = modelMapper.map(productList, new TypeToken<List<ProductDTO>>() {}.getType());
+        List<ProductDTO> productDTOList =
+                modelMapper.map(productList, new TypeToken<List<ProductDTO>>() {}.getType());
+
+        for (int i = 0; i < productList.size(); i++) {
+            Product entity = productList.get(i);
+            ProductDTO dto = productDTOList.get(i);
+
+            if (entity.getProductStock() != null) {
+                dto.setSellingPrice(entity.getProductStock().getSellingPrice());
+            }
+        }
 
         return Response.builder()
                 .status(200)
                 .message("Success")
-                .products(ProductDTOList)
+                .products(productDTOList)
                 .totalPages(productPage.getTotalPages())
                 .totalElements(productPage.getTotalElements())
                 .build();
-
     }
 
     private Sort getSortByFilter(FilterEnum filter) {

@@ -1,8 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.controllers;
 
-import com.biogenholdings.InventoryMgtSystem.dtos.Response;
-import com.biogenholdings.InventoryMgtSystem.dtos.SalesOrderRequestDTO;
-import com.biogenholdings.InventoryMgtSystem.dtos.SalesOrderResponseDTO;
+import com.biogenholdings.InventoryMgtSystem.dtos.*;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import com.biogenholdings.InventoryMgtSystem.services.SalesOrderService;
 import lombok.RequiredArgsConstructor;
@@ -57,5 +55,11 @@ public class SalesOrderController {
     @GetMapping("/getPendingOrderCount")
     public ResponseEntity<Long> getPendingOrderCount(){
         return ResponseEntity.ok(salesOrderService.pendingSalesOrderCount());
+    }
+
+    @PostMapping("/payment")
+    public ResponseEntity<Response> createSalesOrderPayment(@RequestBody SalesOrderPaymentDTO dto) {
+        Response response = salesOrderService.createSalesOrderPayment(dto);
+        return ResponseEntity.status(response.getStatus()).body(response);
     }
 }

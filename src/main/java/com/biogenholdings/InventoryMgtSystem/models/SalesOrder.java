@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.models;
 
+import com.biogenholdings.InventoryMgtSystem.enums.DiscountTypeEnum;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -35,7 +36,7 @@ public class SalesOrder {
     @Column(nullable = false)
     private LocalDate invoiceDate;
 
-    private Integer creditTerm;
+    private String creditTerm;
 
     @Column(nullable = false)
     private BigDecimal grandTotal;
@@ -76,6 +77,16 @@ public class SalesOrder {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
+
+    private BigDecimal additionalDiscount;
+
+    private BigDecimal courierCharges;
+
+    @Enumerated(EnumType.STRING)
+    private DiscountTypeEnum additionalDiscountType;
+
+    @Column(name = "payment_status")
+    private String paymentStatus;
 
 
 }

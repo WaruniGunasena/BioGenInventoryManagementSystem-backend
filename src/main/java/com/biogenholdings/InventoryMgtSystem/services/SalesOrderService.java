@@ -1,8 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.services;
 
-import com.biogenholdings.InventoryMgtSystem.dtos.Response;
-import com.biogenholdings.InventoryMgtSystem.dtos.SalesOrderRequestDTO;
-import com.biogenholdings.InventoryMgtSystem.dtos.SalesOrderResponseDTO;
+import com.biogenholdings.InventoryMgtSystem.dtos.*;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 
 public interface SalesOrderService {
@@ -20,4 +18,6 @@ public interface SalesOrderService {
     Response approveSalesOrder(SalesOrderStatus salesOrderStatus, Long userId, Long salesOrderId);
 
     Long pendingSalesOrderCount();
+
+    Response createSalesOrderPayment(SalesOrderPaymentDTO dto);
 }

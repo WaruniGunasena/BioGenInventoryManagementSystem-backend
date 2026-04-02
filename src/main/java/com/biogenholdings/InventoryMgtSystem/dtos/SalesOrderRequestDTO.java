@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.dtos;
 
+import com.biogenholdings.InventoryMgtSystem.enums.DiscountTypeEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,5 +19,8 @@ public class SalesOrderRequestDTO {
     private Long userId;
     private LocalDate date;
     private BigDecimal grandTotal;
+    private BigDecimal additionalDiscountValue;
+    private BigDecimal courierCharges;
+    private DiscountTypeEnum additionalDiscountType;
     private List<SalesOrderItemRequestDTO> items;
 }
