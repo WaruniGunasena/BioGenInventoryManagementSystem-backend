@@ -207,6 +207,7 @@ public class UserServiceImpl implements UserService {
 
         employee.setIsDeleted(true);
         employee.setDeletedBy(admin);
+        employee.setEmail(employee.getEmail() + "_deleted_ " + System.currentTimeMillis());
 
         userRepository.save(employee);
 

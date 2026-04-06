@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.models;
 
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,13 +10,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "grn_payments")
+@Table(name = "sales_order_payments")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 
-public class GRNPayment {
+public class SalesOrderPayment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,11 +43,11 @@ public class GRNPayment {
     private LocalDate chequeDueDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "grn_id", nullable = false)
+    @JoinColumn(name = "salesOrder_id", nullable = false)
     @JsonIgnore
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private GRN grn;
+    private SalesOrder salesOrder;
 
     private Long createdBy;
 
@@ -64,7 +65,7 @@ public class GRNPayment {
 
     @Override
     public String toString() {
-        return "GRNPayment{" +
+        return "SalesOrderPayment{" +
                 "id=" + id +
                 ", amount=" + amount +
                 ", paymentMethod='" + paymentMethod + '\'' +
@@ -83,5 +84,4 @@ public class GRNPayment {
                 ", deletedAt=" + deletedAt +
                 '}';
     }
-
 }

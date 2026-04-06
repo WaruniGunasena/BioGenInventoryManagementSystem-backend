@@ -19,4 +19,5 @@ public class StockResponseDTO {
     private Integer minimumStockLevel;
     private Integer reorderLevel;
     private String itemCode;
+    private String packSize;
 }

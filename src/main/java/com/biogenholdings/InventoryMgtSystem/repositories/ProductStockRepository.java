@@ -24,7 +24,8 @@ public interface ProductStockRepository extends JpaRepository<ProductStock, Long
             ps.sellingPrice,
             p.minimumStockLevel,
             p.reorderLevel,
-            p.itemCode
+            p.itemCode,
+            p.packSize
         )
         FROM ProductStock ps
         JOIN ps.product p
@@ -41,7 +42,8 @@ public interface ProductStockRepository extends JpaRepository<ProductStock, Long
             ps.sellingPrice,
             p.minimumStockLevel,
             p.reorderLevel,
-            p.itemCode
+            p.itemCode,
+            p.packSize
         )
         FROM ProductStock ps
         JOIN ps.product p
@@ -57,7 +59,8 @@ public interface ProductStockRepository extends JpaRepository<ProductStock, Long
             ps.sellingPrice,
             p.minimumStockLevel,
             p.reorderLevel,
-            p.itemCode
+            p.itemCode,
+            p.packSize
         )
         FROM ProductStock ps
         JOIN ps.product p

@@ -65,8 +65,8 @@ public class ProductController {
             @RequestParam(value = "packSize", required = false) String packSize,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "openingBalance", required = false, defaultValue = "0") Integer openingBalance,
-            @RequestParam(value = "mrp") BigDecimal mrp,
-            @RequestParam(value = "sRepCommissionRate") BigDecimal sRepCommissionRate
+            @RequestParam(value = "mrp", required = false) BigDecimal mrp,
+            @RequestParam(value = "sRepCommissionRate", required = false) BigDecimal sRepCommissionRate
     ) {
         ProductDTO productDTO = new ProductDTO();
         productDTO.setId(id);
@@ -112,11 +112,16 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<Response> getPaginatedProductResults(@RequestParam(defaultValue = "0") Integer page,
-                                                     @RequestParam(defaultValue = "5") Integer size,
-                                                     @RequestParam(defaultValue = "ASC") FilterEnum filter,
-                                                               @RequestParam(required = false) Long categoryID){
-        return ResponseEntity.ok(productService.getPaginatedProducts(page,size,filter,categoryID));
+    public ResponseEntity<Response> getPaginatedProductResults(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "5") Integer size,
+            @RequestParam(defaultValue = "ASC") FilterEnum filter,
+            @RequestParam(required = false) Long categoryID,
+            @RequestParam(required = false) String searchKey
+    ) {
+        return ResponseEntity.ok(
+                productService.getPaginatedProducts(page, size, filter, categoryID, searchKey)
+        );
     }
 
 }

@@ -6,7 +6,9 @@ import com.biogenholdings.InventoryMgtSystem.enums.FilterEnum;
 import com.biogenholdings.InventoryMgtSystem.exceptions.NotFoundException;
 import com.biogenholdings.InventoryMgtSystem.models.Customer;
 import com.biogenholdings.InventoryMgtSystem.models.User;
+import com.biogenholdings.InventoryMgtSystem.projections.CustomerDueProjection;
 import com.biogenholdings.InventoryMgtSystem.repositories.CustomerRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.SalesOrderRepository;
 import com.biogenholdings.InventoryMgtSystem.repositories.UserRepository;
 import com.biogenholdings.InventoryMgtSystem.services.CustomerService;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +21,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +35,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
+    private final SalesOrderRepository salesOrderRepository;
 
     @Override
     public Response addCustomer(CustomerDTO customerDTO) {
@@ -45,7 +51,9 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         Customer customerToSave = Customer.builder()
-                .email(customerDTO.getEmail())
+                .email( customerDTO.getEmail() == null || customerDTO.getEmail().isBlank()
+                        ? null
+                        : customerDTO.getEmail())
                 .address(customerDTO.getAddress())
                 .name(customerDTO.getName())
                 .postalCode(customerDTO.getPostalCode())
@@ -53,6 +61,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .province(customerDTO.getProvince())
                 .creditPeriod(customerDTO.getCreditPeriod())
                 .creditLimit(customerDTO.getCreditLimit())
+                .dueBalance(BigDecimal.valueOf(0))
                 .build();
 
         customerRepository.save(customerToSave);
@@ -79,9 +88,28 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public Response getAllCustomers() {
-        List<Customer> customers = customerRepository.findByIsDeletedFalse(Sort.by(Sort.Direction.DESC, "id"));
 
-        List<CustomerDTO> customerDTOS = modelMapper.map(customers, new TypeToken<List<CustomerDTO>>() {}.getType());
+        List<Customer> customers = customerRepository
+                .findByIsDeletedFalse(Sort.by(Sort.Direction.DESC, "id"));
+
+        List<CustomerDTO> customerDTOS = modelMapper.map(
+                customers,
+                new TypeToken<List<CustomerDTO>>() {}.getType()
+        );
+
+        List<CustomerDueProjection> dues = salesOrderRepository.getCustomerDueBalances();
+
+        Map<Long, BigDecimal> dueMap = dues.stream()
+                .collect(Collectors.toMap(
+                        CustomerDueProjection::getCustomerId,
+                        CustomerDueProjection::getTotalDue
+                ));
+
+        for (CustomerDTO dto : customerDTOS) {
+            dto.setTotalDue(
+                    dueMap.getOrDefault(dto.getId(), BigDecimal.ZERO)
+            );
+        }
 
         return Response.builder()
                 .status(200)
@@ -102,7 +130,7 @@ public class CustomerServiceImpl implements CustomerService {
 
         return Response.builder()
                 .status(200)
-                .message("Suucess")
+                .message("Success")
                 .customers(customerDTOList)
                 .totalPages(customerPage.getTotalPages())
                 .totalElements(customerPage.getTotalElements())
@@ -120,7 +148,9 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         if (customerDTO.getEmail() != null) {
-            customer.setEmail(customerDTO.getEmail());
+            // If user sends "", we set it to NULL to avoid duplicate key errors
+            String email = customerDTO.getEmail().trim();
+            customer.setEmail(email.isEmpty() ? null : email);
         }
 
         if (customerDTO.getContact_No() != null) {
@@ -186,6 +216,7 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setDeletedBy(user);
         customer.setDeletedAt(LocalDateTime.now());
         customer.setIsDeleted(true);
+        customer.setEmail(customer.getEmail() + "_deleted_" + System.currentTimeMillis());
 
         customerRepository.save(customer);
 
