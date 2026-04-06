@@ -15,11 +15,13 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
 
     // 1.1 & 3.1: Daily Business/Sales Summary
     @Query(value = "SELECT " +
-            "COUNT(id) as totalOrders, " +
-            "SUM(grand_total) as grossSales, " +
-            "SUM(CASE WHEN status = 'APPROVED' THEN grand_total ELSE 0 END) as approvedSales " +
-            "FROM sales_orders " +
-            "WHERE invoice_date = :date AND is_deleted = false", nativeQuery = true)
+            "(SELECT COUNT(id) FROM sales_orders WHERE invoice_date = :date AND is_deleted = false) as totalOrders, " +
+            "(SELECT SUM(grand_total) FROM sales_orders WHERE invoice_date = :date AND is_deleted = false) as grossSales, " +
+            "(SELECT SUM(grand_total) FROM sales_orders WHERE invoice_date = :date AND status = 'Approved' AND is_deleted = false) as approvedSales, " +
+            // Cash vs Credit Breakdown (Assuming based on your SalesOrder grandTotal vs payments if applicable,
+            // or if you have a paymentMethod field in SalesOrder, use that. Here we assume all approved are potential revenue)
+            "(SELECT COALESCE(SUM(amount), 0) FROM grn_payments WHERE CAST(created_at AS DATE) = :date AND is_deleted = false) as dailyExpenses " +
+            "FROM (SELECT 1) as dummy", nativeQuery = true)
     Map<String, Object> getDailySummary(@Param("date") LocalDate date);
 
     // 4.5: Top Customers Report (By Revenue)
