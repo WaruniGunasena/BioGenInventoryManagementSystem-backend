@@ -14,6 +14,8 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
 
     Page<SalesOrder> findByUser_Id(Long userId, Pageable pageable);
     Long countByStatusAndIsDeletedFalse(SalesOrderStatus status);
+    List<SalesOrder> findBycustomer_id(Long customerId);
+    SalesOrder findByid(Long orderId);
 
     @Query(value = """
     SELECT

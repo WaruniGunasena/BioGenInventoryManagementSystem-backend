@@ -44,6 +44,7 @@ public class Response {
     private List<StockResponseDTO> productStocks;
 
     private List<SalesOrderResponseDTO> salesOrderList;
+    private SalesOrderResponseDTO salesOrder;
 
     private Integer currentPage;
     private Long totalItems;

@@ -11,6 +11,8 @@ import com.biogenholdings.InventoryMgtSystem.services.SalesOrderService;
 import com.biogenholdings.InventoryMgtSystem.services.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.modelmapper.TypeToken;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +42,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final UserRepository userRepository;
     private final UserService userService;
     private final SalesOrderPaymentRepository salesOrderPaymentRepository;
+    private final ModelMapper modelMapper;
 
     @Override
     public String generateInvoiceNumber() {
@@ -405,6 +408,36 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .message("Failed to create SalesOrder payment: " + e.getMessage())
                     .build();
         }
+    }
+
+    @Override
+    public Response getCustomerSalesOrders(Long customerId) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new NotFoundException("Customer not found"));
+
+        List<SalesOrder> salesOrders = salesOrderRepository.findBycustomer_id(customerId);
+
+        List<SalesOrderResponseDTO> salesOrderResponseDTOS = modelMapper.map(salesOrders, new TypeToken<List<SalesOrderResponseDTO>>() {}.getType());
+
+        return Response.builder()
+                .message("Returned data sucessfully")
+                .status(200)
+                .salesOrderList(salesOrderResponseDTOS)
+                .build();
+    }
+
+    @Override
+    public Response getSalesOrderById(Long orderId) {
+        SalesOrder salesOrder = salesOrderRepository.findById(orderId)
+                .orElseThrow(()-> new NotFoundException("Order not found"));
+
+        SalesOrderResponseDTO salesOrderResponseDTO = modelMapper.map(salesOrder,SalesOrderResponseDTO.class);
+
+        return Response.builder()
+                .status(200)
+                .message("Successful")
+                .salesOrder(salesOrderResponseDTO)
+                .build();
     }
 
 
