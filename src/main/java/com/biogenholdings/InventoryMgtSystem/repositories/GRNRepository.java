@@ -17,7 +17,8 @@ public interface GRNRepository extends JpaRepository<GRN, Long> {
     Page<GRN> findByIsDeletedFalse(Pageable pageable);
 
     @Query("SELECT g FROM GRN g JOIN FETCH g.supplier " +
-            "WHERE g.paymentStatus IN ('PARTIAL', 'UNPAID')")
+            "WHERE g.paymentStatus IN ('PARTIAL', 'UNPAID')" +
+            "AND g.isDeleted = false")
     List<GRN> findAllPendingCredits();
 
 }
