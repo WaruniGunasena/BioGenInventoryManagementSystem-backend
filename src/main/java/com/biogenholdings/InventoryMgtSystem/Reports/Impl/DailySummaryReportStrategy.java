@@ -28,31 +28,29 @@ public class DailySummaryReportStrategy implements ReportStrategy {
         String dateStr = params.getOrDefault("date", LocalDate.now().toString());
         LocalDate date = LocalDate.parse(dateStr);
 
-        // 1. Get raw data from DB
-        Map<String, Object> rawData = reportRepo.getDailySummary(date);
+        Map<String, Object> data = reportRepo.getFullDailyBusinessSummary(date);
 
-        // 2. Extract values (handling nulls safely)
-        BigDecimal approvedSales = (BigDecimal) rawData.getOrDefault("approvedSales", BigDecimal.ZERO);
-        BigDecimal expenses = (BigDecimal) rawData.getOrDefault("dailyExpenses", BigDecimal.ZERO);
+        // Convert everything to BigDecimal safely
+        BigDecimal approvedSales = new BigDecimal(data.get("approvedSales").toString());
+        BigDecimal expenses = new BigDecimal(data.get("totalExpenses").toString());
+        BigDecimal cashIn = new BigDecimal(data.get("cashIncome").toString());
+        BigDecimal chequeIn = new BigDecimal(data.get("chequeIncome").toString());
 
-        if (approvedSales == null) approvedSales = BigDecimal.ZERO;
-        if (expenses == null) expenses = BigDecimal.ZERO;
+        // Calculations
+        BigDecimal totalCollection = cashIn.add(chequeIn);
+        BigDecimal estimatedNetProfit = approvedSales.subtract(expenses);
 
-        // 3. Calculate Net Profit Estimate
-        BigDecimal netProfit = approvedSales.subtract(expenses);
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("Date", date);
+        summary.put("Orders Count", data.get("totalOrders"));
+        summary.put("Gross Sales", data.get("grossSales"));
+        summary.put("Approved Sales", approvedSales);
+        summary.put("Cash Collected", cashIn);
+        summary.put("Cheque Collected", chequeIn);
+        summary.put("Total Collection", totalCollection);
+        summary.put("Supplier Payments (Expenses)", expenses);
+        summary.put("Est. Net Profit", estimatedNetProfit);
 
-        // 4. Create the final clean Map for the PDF/Dashboard
-        Map<String, Object> finalReport = new HashMap<>();
-        finalReport.put("Date", date.toString());
-        finalReport.put("Total Orders", rawData.get("totalOrders"));
-        finalReport.put("Gross Sales", rawData.get("grossSales"));
-        finalReport.put("Approved Sales", approvedSales);
-        finalReport.put("Total Expenses (GRN)", expenses);
-        finalReport.put("Estimated Net Profit", netProfit);
-
-        // Note: For Cash/Credit breakdown, you would need a 'paymentType'
-        // field in your SalesOrder model to differentiate them.
-
-        return List.of(finalReport);
+        return List.of(summary);
     }
 }
