@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface GRNItemRepository extends JpaRepository<GRNItem, Long> {
     List<GRNItem> findByGrnId(Long grnId);
+    List<GRNItem> findByGrnIdAndIsDeletedFalse(Long grnId);
 }
