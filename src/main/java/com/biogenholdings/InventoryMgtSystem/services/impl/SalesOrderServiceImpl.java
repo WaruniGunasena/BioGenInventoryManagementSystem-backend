@@ -438,6 +438,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .dueBalance(dueBalance)
                 .paymentStatus(order.getPaymentStatus())
                 .netTotal(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType()))
+                .previousDueAmount(order.getCustomer().getDueBalance())
+                .invoiceDueDate(
+                        "cash".equalsIgnoreCase(order.getCreditTerm())
+                                ? "Cash"
+                                : order.getInvoiceDate()
+                                .plusDays(Long.parseLong(order.getCreditTerm()))
+                                .toString()
+                )
 
                 .customer(CustomerDTO.builder()
                         .id(order.getCustomer().getId())
@@ -460,7 +468,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                         .id(item.getId())
                                         .quantity(item.getQuantity())
                                         .sellingPrice(item.getSellingPrice())
-                                        .totalAmount(item.getSellingPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                                        .totalAmount(item.getDiscountedPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                                         .discountPercent(item.getDiscountPercent())
                                         .discountedPrice(item.getDiscountedPrice())
                                         .unit(item.getUnit())
