@@ -7,8 +7,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
 
@@ -35,5 +39,18 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     GROUP BY so.customer_id
 """, nativeQuery = true)
     List<CustomerDueProjection> getCustomerDueBalances();
+
+    // 4. Pending Orders count
+    Long countByStatus(SalesOrderStatus status);
+
+    // 5. Daily Revenue Trend (Last 7 days)
+    @Query("SELECT s.invoiceDate as date, SUM(s.grandTotal) as total " +
+            "FROM SalesOrder s WHERE s.invoiceDate >= :startDate " +
+            "GROUP BY s.invoiceDate ORDER BY s.invoiceDate ASC")
+    List<Map<String, Object>> getSalesTrend(@Param("startDate") LocalDate startDate);
+
+    // 6. Total Receivables (Additional Suggestion)
+    @Query("SELECT SUM(c.dueBalance) FROM Customer c WHERE c.isDeleted = false")
+    BigDecimal getTotalOutstandingBalance();
 
 }

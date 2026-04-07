@@ -1,11 +1,20 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
 
-import com.biogenholdings.InventoryMgtSystem.dtos.DashboardStatsDTO;
-import com.biogenholdings.InventoryMgtSystem.repositories.ReportRepository;
+import com.biogenholdings.InventoryMgtSystem.dtos.DashboardResponseDTO;
+import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
+import com.biogenholdings.InventoryMgtSystem.repositories.GRNItemRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.ProductRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.SalesOrderItemRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.SalesOrderRepository;
 import com.biogenholdings.InventoryMgtSystem.services.DashboardService;
+import com.biogenholdings.InventoryMgtSystem.services.StockStatusProjection;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,24 +22,51 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
 
-    private final ReportRepository reportRepo;
+    private final ProductRepository productRepository;
+    private final SalesOrderRepository salesOrderRepository;
+    private final SalesOrderItemRepository salesOrderItemRepository;
+    private final GRNItemRepository grnItemRepository;
 
-    @Override
-    public DashboardStatsDTO getDashboardLiveStats() {
-        List<Map<String, Object>> lowStock = reportRepo.getDashboardLowStock();
-        List<Map<String, Object>> expiry = reportRepo.getDashboardExpiryAlerts();
-        List<Map<String, Object>> topSelling = reportRepo.getDashboardTopSelling();
+    public DashboardResponseDTO getDashboardData() {
+        LocalDate today = LocalDate.now();
+        LocalDate thirtyDaysAgo = today.minusDays(30);
+        LocalDate expiryThreshold = today.plusMonths(3);
 
-        // Get count from the Map returned by the count query
-        Map<String, Object> countMap = reportRepo.getDashboardPendingCount();
-        Long pendingCount = (Long) countMap.get("count");
+        // 1. Fetch Summary Data
+        long pendingOrders = salesOrderRepository.countByStatus(SalesOrderStatus.Pending);
+        BigDecimal outstanding = salesOrderRepository.getTotalOutstandingBalance();
+        if (outstanding == null) outstanding = BigDecimal.ZERO;
 
-        // Build and return the DTO
-        return DashboardStatsDTO.builder()
-                .lowStock(lowStock)
-                .expiryAlerts(expiry)
-                .topSelling(topSelling)
-                .pendingOrdersCount(pendingCount)
+        // 2. Fetch Stock & Expiry Data
+        List<Map<String, Object>> lowStockItems = productRepository.findLowStockProducts();
+        List<Map<String, Object>> expiringItems = grnItemRepository.findUpcomingExpiries(expiryThreshold);
+
+        // 3. Fetch Top Selling (Limit to Top 5 for the Graph)
+        List<Map<String, Object>> topSelling = salesOrderItemRepository.findTopSellingProducts(PageRequest.of(0, 5));
+
+        // 4. Fetch Sales Trend (Last 30 Days)
+        List<Map<String, Object>> trend = salesOrderRepository.getSalesTrend(thirtyDaysAgo);
+
+        // 5. Get Stock Pie Chart Data
+        StockStatusProjection stockCounts = productRepository.getStockStatusCounts();
+        Map<String, Long> stockDist = new HashMap<>();
+
+        if (stockCounts != null) {
+            stockDist.put("Out of Stock", stockCounts.getOutOfStock() != null ? stockCounts.getOutOfStock() : 0L);
+            stockDist.put("Low Stock", stockCounts.getLowStock() != null ? stockCounts.getLowStock() : 0L);
+            stockDist.put("Healthy", stockCounts.getHealthy() != null ? stockCounts.getHealthy() : 0L);
+        }
+
+        return DashboardResponseDTO.builder()
+                .pendingOrdersCount(pendingOrders)
+                .totalOutstandingBalance(outstanding)
+                .lowStockCount((long) lowStockItems.size())
+                .upcomingExpiriesCount((long) expiringItems.size())
+                .lowStockList(lowStockItems)
+                .expiryList(expiringItems)
+                .topSellingProducts(topSelling)
+                .salesTrend(trend)
+                .stockStatusDistribution(stockDist)
                 .build();
     }
 }

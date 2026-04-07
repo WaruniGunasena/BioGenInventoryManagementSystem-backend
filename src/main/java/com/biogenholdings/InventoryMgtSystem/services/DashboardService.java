@@ -1,8 +1,8 @@
 package com.biogenholdings.InventoryMgtSystem.services;
 
-import com.biogenholdings.InventoryMgtSystem.dtos.DashboardStatsDTO;
+import com.biogenholdings.InventoryMgtSystem.dtos.DashboardResponseDTO;
 
 public interface DashboardService {
 
-    DashboardStatsDTO getDashboardLiveStats();
+    DashboardResponseDTO getDashboardData();
 }
