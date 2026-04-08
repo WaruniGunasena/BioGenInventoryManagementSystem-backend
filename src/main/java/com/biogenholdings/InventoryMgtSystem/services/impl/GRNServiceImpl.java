@@ -103,7 +103,7 @@ public class GRNServiceImpl implements GRNService {
             BigDecimal newSellingPrice = purchasePrice.add(margin);
 
             ProductStock stock = productStockRepository
-                    .findByProductId(product.getId())
+                    .findByProductIdForUpdate(product.getId())
                     .orElse(null);
 
             if (stock != null) {
@@ -211,156 +211,166 @@ public class GRNServiceImpl implements GRNService {
     @Transactional
     public Response updateGRN(Long grnId, GRNRequestDTO dto) {
 
-        GRN grn = grnRepository.findById(grnId)
-                .orElseThrow(() -> new NotFoundException("GRN Not Found"));
+        try {
 
-        Supplier supplier = supplierRepository.findById(dto.getSupplierId())
-                .orElseThrow(() -> new NotFoundException("Supplier Not Found"));
+            if (dto.getItems() == null || dto.getItems().isEmpty()) {
+                throw new RuntimeException("GRN must contain at least one item");
+            }
 
-        grn.setInvoiceNumber(dto.getInvoiceNumber());
-        grn.setGrnDate(dto.getDate());
-        grn.setGrandTotal(dto.getGrandTotal());
-        grn.setUpdatedAt(LocalDateTime.now());
-        grn.setUpdatedBy(dto.getUserId());
-        grn.setSupplier(supplier);
+            log.info("Updating GRN {} with {} items", grnId, dto.getItems().size());
 
-        List<GRNItem> existingItems = grnItemRepository.findByGrnId(grnId);
+            GRN grn = grnRepository.findById(grnId)
+                    .orElseThrow(() -> new NotFoundException("GRN Not Found"));
 
-        List<Long> incomingIds = dto.getItems().stream()
-                .map(GRNItemDTO::getId)
-                .filter(Objects::nonNull)
-                .toList();
+            Supplier supplier = supplierRepository.findById(dto.getSupplierId())
+                    .orElseThrow(() -> new NotFoundException("Supplier Not Found"));
 
-        for (GRNItem existingItem : existingItems) {
+            grn.setInvoiceNumber(dto.getInvoiceNumber());
+            grn.setGrnDate(dto.getDate());
+            grn.setGrandTotal(dto.getGrandTotal());
+            grn.setUpdatedAt(LocalDateTime.now());
+            grn.setUpdatedBy(dto.getUserId());
+            grn.setSupplier(supplier);
 
-            if (existingItem.getId() != null && !incomingIds.contains(existingItem.getId())) {
+            List<GRNItem> existingItems = grnItemRepository.findByGrnIdAndIsDeletedFalse(grnId);
 
-                int oldQty = existingItem.getQuantity() + existingItem.getBonus();
+            List<Long> incomingIds = dto.getItems().stream()
+                    .map(GRNItemDTO::getId)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            for (GRNItem existingItem : existingItems) {
+
+                if (existingItem.getId() != null && !incomingIds.contains(existingItem.getId())) {
+
+                    log.warn("Soft deleting item ID: {}", existingItem.getId());
+
+                    existingItem.setIsDeleted(true);
+                    existingItem.setDeletedBy(dto.getUserId());
+                    existingItem.setDeletedAt(LocalDateTime.now());
+
+                    grn.getItems().remove(existingItem);
+
+                    grnItemRepository.save(existingItem);
+                }
+            }
+
+            for (GRNItemDTO itemDTO : dto.getItems()) {
+
+                log.info("Processing item DTO: {}", itemDTO);
+
+                GRNItem grnItem;
+                Product product;
+
+                int oldQty = 0;
+
+                if (itemDTO.getId() != null) {
+
+                    grnItem = grnItemRepository.findById(itemDTO.getId())
+                            .orElseThrow(() -> new NotFoundException(
+                                    "GRN Item Not Found: " + itemDTO.getId()));
+
+                    product = grnItem.getProduct();
+
+                    oldQty = grnItem.getQuantity() + grnItem.getBonus();
+
+                } else {
+
+                    product = productRepository.findById(itemDTO.getProductId())
+                            .orElseThrow(() -> new NotFoundException(
+                                    "Product Not Found: " + itemDTO.getProductId()));
+
+                    grnItem = GRNItem.builder()
+                            .grn(grn)
+                            .product(product)
+                            .createdAt(LocalDateTime.now())
+                            .isDeleted(false)
+                            .build();
+
+                    grn.getItems().add(grnItem);
+                }
+
+                grnItem.setGrn(grn);
+                grnItem.setIsDeleted(false);
+
+                int newQty = itemDTO.getQuantity() + itemDTO.getBonus();
+
+                grnItem.setBatchNumber(itemDTO.getBatchNumber());
+                grnItem.setMfgDate(itemDTO.getMfgDate());
+                grnItem.setExpDate(itemDTO.getExpDate());
+                grnItem.setPurchasePrice(itemDTO.getPurchasePrice());
+                grnItem.setQuantity(itemDTO.getQuantity());
+                grnItem.setBonus(itemDTO.getBonus());
+                grnItem.setPackSize(itemDTO.getPackSize());
+                grnItem.setTotalAmount(itemDTO.getTotalAmount());
+                grnItem.setDiscountValue(itemDTO.getDiscountValue());
+                grnItem.setMrpValue(itemDTO.getMrpValue());
+                grnItem.setDiscountPercentage(itemDTO.getDiscountPercentage());
+                grnItem.setSellingPricePercentage(itemDTO.getSellingPricePercentage());
+                grnItem.setUpdatedAt(LocalDateTime.now());
+                grnItem.setUpdatedBy(dto.getUserId());
+
+                grnItemRepository.save(grnItem);
+
+                product.setMrp(itemDTO.getMrpValue());
+                productRepository.save(product);
+
+                BigDecimal purchasePrice = itemDTO.getPurchasePrice();
+                BigDecimal percentage = itemDTO.getSellingPricePercentage();
+
+                BigDecimal margin = purchasePrice
+                        .multiply(percentage)
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+                BigDecimal newSellingPrice = purchasePrice.add(margin);
 
                 ProductStock stock = productStockRepository
-                        .findByProductId(existingItem.getProduct().getId())
+                        .findByProductId(product.getId())
                         .orElse(null);
 
+                int finalQtyChange = newQty - oldQty;
+
                 if (stock != null) {
-                    int updatedQty = stock.getTotalQuantity() - oldQty;
+
+                    int updatedQty = stock.getTotalQuantity() + finalQtyChange;
                     if (updatedQty < 0) updatedQty = 0;
 
                     stock.setTotalQuantity(updatedQty);
+
+                    if (stock.getSellingPrice() == null ||
+                            newSellingPrice.compareTo(stock.getSellingPrice()) > 0) {
+
+                        stock.setSellingPrice(newSellingPrice);
+                    }
+
                     productStockRepository.save(stock);
+
+                } else {
+
+                    ProductStock newStock = ProductStock.builder()
+                            .product(product)
+                            .totalQuantity(newQty)
+                            .sellingPrice(newSellingPrice)
+                            .build();
+
+                    productStockRepository.save(newStock);
                 }
-
-                existingItem.setIsDeleted(true);
-                existingItem.setDeletedBy(dto.getUserId());
-                existingItem.setDeletedAt(LocalDateTime.now());
-
-                grnItemRepository.save(existingItem);
             }
+
+            grnRepository.save(grn);
+
+            log.info("GRN {} updated successfully", grnId);
+
+            return Response.builder()
+                    .status(200)
+                    .message("GRN updated successfully")
+                    .grn(mapToDTO(grn))
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Error updating GRN {}", grnId, e);
+            throw e;
         }
-
-        for (GRNItemDTO itemDTO : dto.getItems()) {
-
-            GRNItem grnItem;
-            Product product;
-
-            if (itemDTO.getId() != null) {
-
-                grnItem = grnItemRepository.findById(itemDTO.getId())
-                        .orElseThrow(() -> new NotFoundException(
-                                "GRN Item Not Found: " + itemDTO.getId()));
-
-                int oldQty = grnItem.getQuantity() + grnItem.getBonus();
-
-                ProductStock stock = productStockRepository
-                        .findByProductId(grnItem.getProduct().getId())
-                        .orElse(null);
-
-                if (stock != null) {
-                    stock.setTotalQuantity(stock.getTotalQuantity() - oldQty);
-                    productStockRepository.save(stock);
-                }
-
-                product = grnItem.getProduct();
-
-            }
-
-            else {
-
-                product = productRepository.findById(itemDTO.getProductId())
-                        .orElseThrow(() -> new NotFoundException(
-                                "Product Not Found: " + itemDTO.getProductId()));
-
-                grnItem = GRNItem.builder()
-                        .grn(grn)
-                        .product(product)
-                        .createdAt(LocalDateTime.now())
-                        .isDeleted(false)
-                        .build();
-            }
-
-            int totalReceived = itemDTO.getQuantity() + itemDTO.getBonus();
-
-            grnItem.setBatchNumber(itemDTO.getBatchNumber());
-            grnItem.setMfgDate(itemDTO.getMfgDate());
-            grnItem.setExpDate(itemDTO.getExpDate());
-            grnItem.setPurchasePrice(itemDTO.getPurchasePrice());
-            grnItem.setQuantity(itemDTO.getQuantity());
-            grnItem.setBonus(itemDTO.getBonus());
-            grnItem.setPackSize(itemDTO.getPackSize());
-            grnItem.setTotalAmount(itemDTO.getTotalAmount());
-            grnItem.setDiscountValue(itemDTO.getDiscountValue());
-            grnItem.setMrpValue(itemDTO.getMrpValue());
-            grnItem.setDiscountPercentage(itemDTO.getDiscountPercentage());
-            grnItem.setSellingPricePercentage(itemDTO.getSellingPricePercentage());
-            grnItem.setUpdatedAt(LocalDateTime.now());
-            grnItem.setUpdatedBy(dto.getUserId());
-
-            grnItemRepository.save(grnItem);
-
-            BigDecimal purchasePrice = itemDTO.getPurchasePrice();
-            BigDecimal percentage = itemDTO.getSellingPricePercentage();
-
-            BigDecimal margin = purchasePrice
-                    .multiply(percentage)
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-
-            BigDecimal newSellingPrice = purchasePrice.add(margin);
-
-            ProductStock stock = productStockRepository
-                    .findByProductId(product.getId())
-                    .orElse(null);
-
-            if (stock != null) {
-
-                int updatedQty = stock.getTotalQuantity() + totalReceived;
-                stock.setTotalQuantity(updatedQty);
-
-                if (stock.getSellingPrice() == null ||
-                        newSellingPrice.compareTo(stock.getSellingPrice()) > 0) {
-
-                    stock.setSellingPrice(newSellingPrice);
-                }
-
-                productStockRepository.save(stock);
-
-            } else {
-
-                ProductStock newStock = ProductStock.builder()
-                        .product(product)
-                        .totalQuantity(totalReceived)
-                        .sellingPrice(newSellingPrice)
-                        .build();
-
-                productStockRepository.save(newStock);
-            }
-        }
-
-        grnRepository.save(grn);
-
-        return Response.builder()
-                .status(200)
-                .message("GRN updated successfully")
-                .grn(mapToDTO(grn))
-                .build();
     }
 
     private GRNResponseDTO mapToDTO(GRN grn) {
@@ -397,6 +407,7 @@ public class GRNServiceImpl implements GRNService {
                         .build())
                 .items(grn.getItems() == null ? List.of() :
                         grn.getItems().stream()
+                                .filter(item -> !Boolean.TRUE.equals(item.getIsDeleted()))
                                 .map(item -> GRNItemResponseDTO.builder()
                                         .id(item.getId())
                                         .product(ProductDTO.builder()
@@ -440,7 +451,7 @@ public class GRNServiceImpl implements GRNService {
             int totalReceived = item.getQuantity() + item.getBonus();
 
             ProductStock stock = productStockRepository
-                    .findByProductId(item.getProduct().getId())
+                    .findByProductIdForUpdate(item.getProduct().getId())
                     .orElse(null);
 
             if (stock != null) {
@@ -477,21 +488,59 @@ public class GRNServiceImpl implements GRNService {
     @Override
     @Transactional
     public Response createGRNPayment(GRNPaymentDTO dto) {
-        try {
-            GRN grn = grnRepository.findById(dto.getGrnId())
-                    .orElseThrow(() -> new NotFoundException("GRN not found with ID: " + dto.getGrnId()));
 
+        try {
+
+            // 🔴 STEP 1: Fetch GRN
+            GRN grn = grnRepository.findById(dto.getGrnId())
+                    .orElseThrow(() -> new NotFoundException(
+                            "GRN not found with ID: " + dto.getGrnId()
+                    ));
+
+            // 🔴 STEP 2: VALIDATION
+            if (dto.getAmount() == null || dto.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Payment amount must be greater than zero");
+            }
+
+            String paymentMethod = dto.getPaymentMethod() != null
+                    ? dto.getPaymentMethod().trim()
+                    : "";
+
+            if (paymentMethod.isBlank()) {
+                throw new RuntimeException("Payment method is required");
+            }
+
+            // 🔴 STEP 3: CALCULATE TOTAL PAID (INCLUDING NEW PAYMENT)
+            BigDecimal existingTotalPaid = grnPaymentRepository
+                    .findByGrnId(dto.getGrnId())
+                    .stream()
+                    .map(GRNPayment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal newTotalPaid = existingTotalPaid.add(dto.getAmount());
+
+            // 🔴 STEP 4: CALCULATE DUE
+            BigDecimal grandTotal = grn.getGrandTotal();
+            BigDecimal dueBalance = grandTotal.subtract(newTotalPaid);
+
+            // prevent negative due (overpayment protection)
+            if (dueBalance.compareTo(BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("Payment exceeds due amount");
+            }
+
+            // 🔴 STEP 5: CREATE PAYMENT
             GRNPayment payment = new GRNPayment();
-            payment.setAmount(dto.getAmount() != null ? dto.getAmount() : BigDecimal.ZERO);
-            payment.setGrandTotal(dto.getGrandTotal() != null ? dto.getGrandTotal() : BigDecimal.ZERO); // <-- MUST set this
-            payment.setPaymentMethod(dto.getPaymentMethod());
+            payment.setAmount(dto.getAmount());
+            payment.setGrandTotal(grandTotal); // ✅ FIXED
+            payment.setPaymentMethod(paymentMethod);
             payment.setGrn(grn);
             payment.setCreatedBy(dto.getUserId());
             payment.setCreatedAt(LocalDateTime.now());
+            payment.setDueBalance(dueBalance);
 
-            String paymentMethod = dto.getPaymentMethod() != null ? dto.getPaymentMethod().trim() : "";
-
+            // 🔴 STEP 6: NON-CASH DETAILS
             if (!"cash".equalsIgnoreCase(paymentMethod)) {
+
                 payment.setBank(dto.getBank() != null ? dto.getBank().trim() : null);
                 payment.setChequeNumber(dto.getChequeNumber() != null ? dto.getChequeNumber().trim() : null);
 
@@ -504,29 +553,18 @@ public class GRNServiceImpl implements GRNService {
                 }
             }
 
-            grnPaymentRepository.save(payment);
-
-            BigDecimal totalPaid = grnPaymentRepository
-                    .findByGrnId(dto.getGrnId())
-                    .stream()
-                    .map(GRNPayment::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal dueBalance = grn.getGrandTotal().subtract(totalPaid);
-            dueBalance = dueBalance.max(BigDecimal.ZERO);
-            payment.setDueBalance(dueBalance);
-
+            // 🔴 STEP 7: UPDATE GRN STATUS
             if (dueBalance.compareTo(BigDecimal.ZERO) == 0) {
                 grn.setPaymentStatus("PAID");
-            } else if (dueBalance.compareTo(grn.getGrandTotal()) < 0) {
+            } else if (dueBalance.compareTo(grandTotal) < 0) {
                 grn.setPaymentStatus("PARTIAL");
             } else {
                 grn.setPaymentStatus("UNPAID");
             }
 
+            // 🔴 STEP 8: SAVE ONCE
             grnPaymentRepository.save(payment);
             grnRepository.save(grn);
-
 
             return Response.builder()
                     .status(200)
@@ -534,6 +572,7 @@ public class GRNServiceImpl implements GRNService {
                     .build();
 
         } catch (Exception e) {
+
             return Response.builder()
                     .status(500)
                     .message("Failed to create GRN payment: " + e.getMessage())
