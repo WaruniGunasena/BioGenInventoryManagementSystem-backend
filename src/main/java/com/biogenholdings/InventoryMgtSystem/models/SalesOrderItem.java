@@ -1,10 +1,7 @@
 package com.biogenholdings.InventoryMgtSystem.models;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 
@@ -22,10 +19,12 @@ public class SalesOrderItem {
 
     @ManyToOne
     @JoinColumn(name = "sales_order_id", nullable = false)
+    @ToString.Exclude
     private SalesOrder salesOrder;
 
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
+    @ToString.Exclude
     private Product product;
 
     @Column(nullable = false)
@@ -42,4 +41,17 @@ public class SalesOrderItem {
     private BigDecimal discountedPrice;
 
     private String unit;
+
+    @Override
+    public String toString() {
+        return "SalesOrderItem{" +
+                "sellingPrice=" + sellingPrice +
+                ", quantity=" + quantity +
+                ", totalAmount=" + totalAmount +
+                ", discountPercent=" + discountPercent +
+                ", discountedPrice=" + discountedPrice +
+                ", unit='" + unit + '\'' +
+                ", id=" + id +
+                '}';
+    }
 }

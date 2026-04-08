@@ -439,13 +439,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .paymentStatus(order.getPaymentStatus())
                 .netTotal(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType()))
                 .previousDueAmount(order.getCustomer().getDueBalance())
-                .invoiceDueDate(
-                        "cash".equalsIgnoreCase(order.getCreditTerm())
-                                ? "Cash"
-                                : order.getInvoiceDate()
-                                .plusDays(Long.parseLong(order.getCreditTerm()))
-                                .toString()
-                )
+                .invoiceDueDate(calculateDueDate(order))
 
                 .customer(CustomerDTO.builder()
                         .id(order.getCustomer().getId())
@@ -476,6 +470,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                                 .id(item.getProduct().getId())
                                                 .name(item.getProduct().getName())
                                                 .unit(item.getProduct().getUnit())
+                                                .itemCode(item.getProduct().getItemCode())
                                                 .build())
                                         .build())
                                 .toList())
@@ -505,6 +500,27 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return grandTotal
                 .add(courierCharges)
                 .subtract(discountAmount);
+    }
+
+    private String calculateDueDate(SalesOrder order) {
+        // 1. Check if creditTerm is null or empty
+        if (order.getCreditTerm() == null || order.getCreditTerm().isBlank()) {
+            return "N/A"; // Or return the invoice date as a default
+        }
+
+        // 2. Handle "Cash" status
+        if ("cash".equalsIgnoreCase(order.getCreditTerm())) {
+            return "Cash";
+        }
+
+        // 3. Try to parse the number of days safely
+        try {
+            long days = Long.parseLong(order.getCreditTerm().trim());
+            return order.getInvoiceDate().plusDays(days).toString();
+        } catch (NumberFormatException e) {
+            // If the creditTerm contains text that isn't "cash" or a number
+            return order.getCreditTerm();
+        }
     }
 
 }

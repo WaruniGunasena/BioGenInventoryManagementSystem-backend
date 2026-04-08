@@ -14,7 +14,7 @@ public interface GRNItemRepository extends JpaRepository<GRNItem, Long> {
     List<GRNItem> findByGrnIdAndIsDeletedFalse(Long grnId);
 
     // 3. Expiry Alerts: Items expiring within a specific date
-    @Query("SELECT gi.product.name as productName, gi.batchNumber as batch, gi.expDate as expiry " +
+    @Query("SELECT gi.product.name as productName, gi.batchNumber as batch, gi.expDate as expiry, (gi.quantity + gi.bonus) as qty " +
             "FROM GRNItem gi WHERE gi.expDate <= :thresholdDate " +
             "AND gi.isDeleted = false AND gi.quantity > 0 " +
             "ORDER BY gi.expDate ASC")

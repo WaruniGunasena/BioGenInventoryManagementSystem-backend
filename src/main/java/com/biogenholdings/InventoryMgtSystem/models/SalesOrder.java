@@ -3,10 +3,7 @@ package com.biogenholdings.InventoryMgtSystem.models;
 import com.biogenholdings.InventoryMgtSystem.enums.DiscountTypeEnum;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -31,6 +28,7 @@ public class SalesOrder {
 
     @ManyToOne
     @JoinColumn(name = "customer_id", nullable = false)
+    @ToString.Exclude
     private Customer customer;
 
     @Column(nullable = false)
@@ -72,6 +70,7 @@ public class SalesOrder {
 
     @Builder.Default
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
     private List<SalesOrderItem> items = new ArrayList<>();
 
     @ManyToOne
@@ -88,5 +87,23 @@ public class SalesOrder {
     @Column(name = "payment_status")
     private String paymentStatus;
 
-
+    @Override
+    public String toString() {
+        return "SalesOrder{" +
+                "id=" + id +
+                ", invoiceNumber='" + invoiceNumber + '\'' +
+                ", invoiceDate=" + invoiceDate +
+                ", creditTerm='" + creditTerm + '\'' +
+                ", grandTotal=" + grandTotal +
+                ", isDeleted=" + isDeleted +
+                ", deletedAt=" + deletedAt +
+                ", updatedAt=" + updatedAt +
+                ", approvedAt=" + approvedAt +
+                ", status=" + status +
+                ", additionalDiscount=" + additionalDiscount +
+                ", courierCharges=" + courierCharges +
+                ", additionalDiscountType=" + additionalDiscountType +
+                ", paymentStatus='" + paymentStatus + '\'' +
+                '}';
+    }
 }
