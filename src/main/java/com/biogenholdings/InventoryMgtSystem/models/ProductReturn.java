@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.models;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,6 +9,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "product_returns")
@@ -48,7 +51,8 @@ public class ProductReturn {
     private String remarks; // General notes for the return
 
     @OneToMany(mappedBy = "productReturn", cascade = CascadeType.ALL, orphanRemoval = true)
-//    private List<ProductReturnItem> returnItems = new ArrayList<>();
+    @JsonManagedReference
+    private List<ProductReturnItem> returnItems = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "created_by")

@@ -85,6 +85,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .additionalDiscount(request.getAdditionalDiscountValue())
                 .courierCharges(request.getCourierCharges())
                 .additionalDiscountType(request.getAdditionalDiscountType())
+                .returnCredits(request.getReturnCredits())
                 .build();
 
         List<SalesOrderItem> items = new ArrayList<>();
@@ -113,6 +114,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .discountPercent(itemReq.getDiscountPercent())
                     .discountedPrice(itemReq.getDiscountedPrice())
                     .unit(itemReq.getUnit())
+                    .isReissue(itemReq.getIsReissue())
                     .build();
 
             items.add(item);
@@ -134,7 +136,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         .build())
                 .collect(Collectors.toList());
 
-        customer.setDueBalance(customer.getDueBalance().add(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType())));
+        customer.setDueBalance(customer.getDueBalance().add(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType())));
         customerRepository.save(customer);
         return SalesOrderResponseDTO.builder()
                 .invoiceNumber(invoiceNumber)
@@ -205,7 +207,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setDeletedBy(user);
         salesOrder.setDeletedAt(LocalDateTime.now());
 
-        salesOrder.setStatus(SalesOrderStatus.Deleted);
 
         salesOrderRepository.save(salesOrder);
 
@@ -374,13 +375,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .map(SalesOrderPayment::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            BigDecimal dueBalance = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType()).subtract(totalPaid);
+            BigDecimal dueBalance = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType()).subtract(totalPaid);
             dueBalance = dueBalance.max(BigDecimal.ZERO);
             payment.setDueBalance(dueBalance);
 
             if (dueBalance.compareTo(BigDecimal.ZERO) == 0) {
                 order.setPaymentStatus("PAID");
-            } else if (dueBalance.compareTo(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType())) < 0) {
+            } else if (dueBalance.compareTo(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType())) < 0) {
                 order.setPaymentStatus("PARTIAL");
             } else {
                 order.setPaymentStatus("UNPAID");
@@ -451,9 +452,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         if (latestPayment != null) {
             dueBalance = latestPayment.getDueBalance();
-            totalPaid = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType()).subtract(dueBalance);
+            totalPaid = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType()).subtract(dueBalance);
         } else {
-            dueBalance = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType());
+            dueBalance = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType());
             totalPaid = BigDecimal.ZERO;
         }
 
@@ -466,11 +467,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .courierCharges(order.getCourierCharges())
                 .additionalDiscountValue(order.getAdditionalDiscount())
                 .additionalDiscountType(order.getAdditionalDiscountType())
+                .returnCredits(order.getReturnCredits())
                 .status(order.getStatus())
                 .totalPaid(totalPaid)
                 .dueBalance(dueBalance)
                 .paymentStatus(order.getPaymentStatus())
-                .netTotal(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getAdditionalDiscountType()))
+                .netTotal(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType()))
                 .previousDueAmount(order.getCustomer().getDueBalance())
                 .invoiceDueDate(
                         "cash".equalsIgnoreCase(order.getCreditTerm())
@@ -505,6 +507,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                         .discountPercent(item.getDiscountPercent())
                                         .discountedPrice(item.getDiscountedPrice())
                                         .unit(item.getUnit())
+                                        .isReissue(item.getIsReissue())
                                         .product(ProductDTO.builder()
                                                 .id(item.getProduct().getId())
                                                 .name(item.getProduct().getName())
@@ -519,13 +522,16 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             BigDecimal grandTotal,
             BigDecimal courierCharges,
             BigDecimal discountValue,
+            BigDecimal returnCredits,
             DiscountTypeEnum discountType
     ) {
         if (grandTotal == null) grandTotal = BigDecimal.ZERO;
         if (courierCharges == null) courierCharges = BigDecimal.ZERO;
         if (discountValue == null) discountValue = BigDecimal.ZERO;
+        if (returnCredits == null) returnCredits = BigDecimal.ZERO;
 
         BigDecimal discountAmount = BigDecimal.ZERO;
+
 
         if (discountType == DiscountTypeEnum.cash) {
             discountAmount = discountValue;
@@ -537,7 +543,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         return grandTotal
                 .add(courierCharges)
-                .subtract(discountAmount);
+                .subtract(discountAmount)
+                .subtract(returnCredits);
     }
 
 }

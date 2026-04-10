@@ -1,13 +1,19 @@
 package com.biogenholdings.InventoryMgtSystem.dtos;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class GRNItemResponseDTO {
 
     private Long id;
@@ -24,4 +30,5 @@ public class GRNItemResponseDTO {
     private BigDecimal discountValue;
     private BigDecimal discountPercentage;
     private BigDecimal mrpValue;
+
 }

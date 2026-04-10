@@ -1,6 +1,10 @@
 package com.biogenholdings.InventoryMgtSystem.repositories;
 
 import com.biogenholdings.InventoryMgtSystem.models.ProductReturn;
+
+import jakarta.annotation.Nonnull;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +17,8 @@ public interface ProductReturnRepository extends JpaRepository<ProductReturn, Lo
 
     // Find a specific return by its unique audit number
     Optional<ProductReturn> findByReturnNumber(String returnNumber);
+
+    Page<ProductReturn> findAll(@Nonnull Pageable pageable);
 
     // Get all returns linked to a specific Sales Order/Invoice
     List<ProductReturn> findBySalesOrderId(Long salesOrderId);

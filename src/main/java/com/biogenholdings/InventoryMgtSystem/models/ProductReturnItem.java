@@ -44,4 +44,12 @@ public class ProductReturnItem {
 
     @Column(nullable = false)
     private BigDecimal commissionReversalAmount; // Calculated: (subTotal * sRepCommissionRate / 100)
+
+    @Column(nullable = false)
+    private Integer quantityRemainingToReissue;
+
+    private Integer qtyReissuedSoFar;  // How many have been given back in new orders
+
+    private boolean isReissued;
+
 }
