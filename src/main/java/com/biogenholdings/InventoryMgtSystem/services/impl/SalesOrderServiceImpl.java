@@ -150,9 +150,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         Page<SalesOrder> salesPage;
 
         if (currentUser.getRole() == UserRole.ADMIN) {
-            salesPage = salesOrderRepository.findAll(pageable);
+            salesPage = salesOrderRepository.findByIsDeleted(false,pageable);
         } else {
-            salesPage = salesOrderRepository.findByUser_Id(currentUser.getId(), pageable);
+            salesPage = salesOrderRepository.findByUser_IdAndIsDeletedFalse(currentUser.getId(), pageable);
         }
 
         List<SalesOrderResponseDTO> dtoList = salesPage
@@ -188,9 +188,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             ProductStock stock = productStockRepository.findByProductId(item.getProduct().getId())
                     .orElseThrow(() -> new RuntimeException("Stock not found for product: " + item.getProduct().getName()));
 
+        if(salesOrder.getStatus() != SalesOrderStatus.Rejected) {
             stock.setTotalQuantity(
                     stock.getTotalQuantity() + item.getQuantity()
             );
+        }
 
             productStockRepository.save(stock);
         }
@@ -202,7 +204,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setDeletedBy(user);
         salesOrder.setDeletedAt(LocalDateTime.now());
 
-        salesOrder.setStatus(SalesOrderStatus.Deleted);
+        salesOrder.setStatus(SalesOrderStatus.Rejected);
 
         salesOrderRepository.save(salesOrder);
 

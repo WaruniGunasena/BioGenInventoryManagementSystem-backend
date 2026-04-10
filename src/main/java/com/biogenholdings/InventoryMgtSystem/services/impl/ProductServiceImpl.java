@@ -134,6 +134,13 @@ public class ProductServiceImpl implements ProductService {
         if(productDTO.getOpeningBalance() != null){
             existingProduct.setOpeningBalance(productDTO.getOpeningBalance());
         }
+        if(productDTO.getSellingPrice() != null){
+            ProductStock productStock = productStockRepository.findByProductId(productDTO.getId())
+                    .orElseThrow(()-> new NotFoundException("Product Not found"));
+            if(productDTO.getSellingPrice().compareTo(productStock.getSellingPrice()) > 0){
+                productStock.setSellingPrice(productDTO.getSellingPrice());
+            }
+        }
 
         productRepository.save(existingProduct);
 
