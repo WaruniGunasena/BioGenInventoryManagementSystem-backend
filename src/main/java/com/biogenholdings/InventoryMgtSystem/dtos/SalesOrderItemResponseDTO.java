@@ -29,4 +29,6 @@ public class SalesOrderItemResponseDTO {
     private ProductDTO product;
 
     private Boolean isReissue;
+
+    private Integer returnQty;
 }

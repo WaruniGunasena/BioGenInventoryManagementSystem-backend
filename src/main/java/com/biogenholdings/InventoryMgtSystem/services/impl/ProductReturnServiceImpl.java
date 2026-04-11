@@ -30,6 +30,7 @@ public class ProductReturnServiceImpl implements ProductReturnService {
     private final ProductStockRepository productStock;
     private final UserRepository userRepository;
     private final ProductReturnItemRepository productReturnItemRepository;
+    private final SalesOrderItemRepository salesOrderItemRepository;
 
     @Transactional
     @Override
@@ -77,6 +78,8 @@ public class ProductReturnServiceImpl implements ProductReturnService {
             BigDecimal commReversal = (commRate != null)
                     ? subTotal.multiply(commRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
+            originalItem.setReturnQty(originalItem.getReturnQty() + itemRequest.getQuantity());
+            salesOrderItemRepository.save(originalItem);
 
             // 5. Create Return Item Entity with Reissue Logic
             ProductReturnItem returnItem = ProductReturnItem.builder()
@@ -124,6 +127,8 @@ public class ProductReturnServiceImpl implements ProductReturnService {
         customer.setAvailableReturnCredit(
                 customer.getAvailableReturnCredit().add(amountToReduceFromDue)
         );
+
+
 
         ProductReturn saved = productReturnRepository.save(productReturn);
         saved.setReturnNumber("RET-" + String.format("%03d", saved.getId()));

@@ -42,6 +42,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final UserRepository userRepository;
     private final UserService userService;
     private final SalesOrderPaymentRepository salesOrderPaymentRepository;
+    private final ProductReturnItemRepository productReturnItemRepository;
     private final ModelMapper modelMapper;
 
     @Override
@@ -105,16 +106,34 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             stock.setTotalQuantity(stock.getTotalQuantity() - itemReq.getQuantity());
             productStockRepository.save(stock);
 
+            // 2. REISSUE LOGIC: If this item is marked as a reissue
+            BigDecimal itemTotalAmount;
+            Integer itemReturnQty;
+
+            if (Boolean.TRUE.equals(itemReq.getIsReissue())) {
+                // LOGIC: This is a reissue, price is 0
+                itemTotalAmount = BigDecimal.ZERO;
+                itemReturnQty = itemReq.getQuantity(); // This matches your 'return_qty' column requirement
+
+                // Update the ProductReturnItems table (FIFO logic we discussed)
+                updatePendingReturnItems(customer.getId(), product.getId(), itemReq.getQuantity());
+            } else {
+                // LOGIC: Normal sale
+                itemTotalAmount = itemReq.getTotalAmount();
+                itemReturnQty = 0;
+            }
+
             SalesOrderItem item = SalesOrderItem.builder()
                     .salesOrder(order)
                     .product(product)
                     .quantity(itemReq.getQuantity())
                     .sellingPrice(itemReq.getSellingPrice())
-                    .totalAmount(itemReq.getTotalAmount())
+                    .totalAmount(itemTotalAmount)
                     .discountPercent(itemReq.getDiscountPercent())
                     .discountedPrice(itemReq.getDiscountedPrice())
                     .unit(itemReq.getUnit())
                     .isReissue(itemReq.getIsReissue())
+                    .returnQty(itemReturnQty)
                     .build();
 
             items.add(item);
@@ -137,6 +156,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .collect(Collectors.toList());
 
         customer.setDueBalance(customer.getDueBalance().add(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType())));
+
+        // RESET Available Return Credit if it was applied as a cash discount in this order
+        if (request.getReturnCredits().compareTo(BigDecimal.ZERO) > 0) {
+            customer.setAvailableReturnCredit(customer.getAvailableReturnCredit().subtract(request.getReturnCredits()));
+        }
+
         customerRepository.save(customer);
         return SalesOrderResponseDTO.builder()
                 .invoiceNumber(invoiceNumber)
@@ -155,9 +180,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         Page<SalesOrder> salesPage;
 
         if (currentUser.getRole() == UserRole.ADMIN) {
-            salesPage = salesOrderRepository.findAll(pageable);
+            salesPage = salesOrderRepository.findByIsDeleted(false,pageable);
         } else {
-            salesPage = salesOrderRepository.findByUser_Id(currentUser.getId(), pageable);
+            salesPage = salesOrderRepository.findByUser_IdAndIsDeletedFalse(currentUser.getId(), pageable);
         }
 
         List<SalesOrderResponseDTO> dtoList = salesPage
@@ -180,6 +205,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     public Response softDeleteSalesOrder(Long salesOrderId, Long userId) {
         SalesOrder salesOrder = salesOrderRepository.findById(salesOrderId)
                 .orElseThrow(() -> new NotFoundException("Sales Order Not Found"));
+
+        Customer customer = customerRepository.findById(salesOrder.getCustomer().getId())
+                .orElseThrow(() -> new NotFoundException("customer not found"));
         if (salesOrder.getStatus() == SalesOrderStatus.Approved) {
             throw new RuntimeException("Cannot delete approved orders");
         }
@@ -207,7 +235,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setDeletedBy(user);
         salesOrder.setDeletedAt(LocalDateTime.now());
 
+        customer.setDueBalance(customer.getDueBalance().subtract(calculateNetTotal(salesOrder.getGrandTotal(),salesOrder.getCourierCharges(),salesOrder.getAdditionalDiscount(),salesOrder.getReturnCredits(),salesOrder.getAdditionalDiscountType())));
 
+        customerRepository.save(customer);
         salesOrderRepository.save(salesOrder);
 
         return Response.builder()
@@ -314,7 +344,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
                     stock.setTotalQuantity(stock.getTotalQuantity() + item.getQuantity());
                     productStockRepository.save(stock);
+
                 }
+                Customer customer = customerRepository.findById(salesOrder.getCustomer().getId())
+                        .orElseThrow(() -> new NotFoundException("Customer not found"));
+
+                customer.setDueBalance(customer.getDueBalance().subtract(calculateNetTotal(salesOrder.getGrandTotal(),salesOrder.getCourierCharges(),salesOrder.getAdditionalDiscount(),salesOrder.getReturnCredits(),salesOrder.getAdditionalDiscountType())));
+                customerRepository.save(customer);
             }
         }
 
@@ -475,6 +511,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .netTotal(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType()))
                 .previousDueAmount(order.getCustomer().getDueBalance())
                 .invoiceDueDate(
+                        order.getCreditTerm() == null ? "N/A" :
                         "cash".equalsIgnoreCase(order.getCreditTerm())
                                 ? "Cash"
                                 : order.getInvoiceDate()
@@ -508,6 +545,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                         .discountedPrice(item.getDiscountedPrice())
                                         .unit(item.getUnit())
                                         .isReissue(item.getIsReissue())
+                                        .returnQty(item.getReturnQty())
                                         .product(ProductDTO.builder()
                                                 .id(item.getProduct().getId())
                                                 .name(item.getProduct().getName())
@@ -545,6 +583,39 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .add(courierCharges)
                 .subtract(discountAmount)
                 .subtract(returnCredits);
+    }
+
+    private void updatePendingReturnItems(Long customerId, Long productId, Integer quantityToReissue) {
+        // Fetch all pending items for this product and customer, ordered by oldest first (FIFO)
+        List<ProductReturnItem> pendingReturns = productReturnItemRepository
+                .findByProductReturn_Customer_IdAndProduct_IdAndQuantityRemainingToReissueGreaterThan(customerId, productId, 0);
+
+        int remainingToProcess = quantityToReissue;
+
+        for (ProductReturnItem returnItem : pendingReturns) {
+            if (remainingToProcess <= 0) break;
+
+            int availableInThisReturn = returnItem.getQuantityRemainingToReissue();
+
+            if (availableInThisReturn >= remainingToProcess) {
+                // This return row can satisfy the rest of the reissue
+                returnItem.setQuantityRemainingToReissue(availableInThisReturn - remainingToProcess);
+
+                // Check if fully reissued now
+                if (returnItem.getQuantityRemainingToReissue() == 0) {
+                    returnItem.setReissued(true);
+                }
+
+                remainingToProcess = 0;
+            } else {
+                // This return row only partially satisfies the reissue
+                remainingToProcess -= availableInThisReturn;
+                returnItem.setQuantityRemainingToReissue(0);
+                returnItem.setReissued(true);
+            }
+
+            productReturnItemRepository.save(returnItem);
+        }
     }
 
 }

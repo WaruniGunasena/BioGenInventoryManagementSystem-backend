@@ -44,4 +44,6 @@ public class SalesOrderItem {
     private String unit;
 
     private Boolean isReissue;
+
+    private Integer returnQty = 0;
 }

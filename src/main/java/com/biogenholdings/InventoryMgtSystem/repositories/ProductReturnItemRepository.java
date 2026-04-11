@@ -10,4 +10,9 @@ public interface ProductReturnItemRepository extends JpaRepository<ProductReturn
             Long customerId,
             Integer minQty
     );
+    List<ProductReturnItem> findByProductReturn_Customer_IdAndProduct_IdAndQuantityRemainingToReissueGreaterThan(
+            Long customerId,
+            Long productId,
+            Integer minQty
+    );
 }
