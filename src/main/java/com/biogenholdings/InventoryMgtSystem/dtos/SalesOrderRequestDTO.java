@@ -22,5 +22,6 @@ public class SalesOrderRequestDTO {
     private BigDecimal additionalDiscountValue;
     private BigDecimal courierCharges;
     private DiscountTypeEnum additionalDiscountType;
+    private BigDecimal returnCredits;
     private List<SalesOrderItemRequestDTO> items;
 }

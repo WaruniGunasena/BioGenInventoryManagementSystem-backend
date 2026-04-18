@@ -49,4 +49,6 @@ public class SalesOrderResponseDTO {
     private String paymentStatus;
     private BigDecimal previousDueAmount;
     private String invoiceDueDate;
+
+    private BigDecimal returnCredits;
 }

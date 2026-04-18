@@ -20,4 +20,8 @@ public interface SalesOrderService {
     Long pendingSalesOrderCount();
 
     Response createSalesOrderPayment(SalesOrderPaymentDTO dto);
+
+    Response getCustomerSalesOrders(Long customerId);
+
+    Response getSalesOrderById(Long orderId);
 }

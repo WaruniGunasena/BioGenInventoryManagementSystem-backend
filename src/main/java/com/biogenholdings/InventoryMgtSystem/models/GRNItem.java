@@ -80,6 +80,7 @@ public class GRNItem {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+
     @Override
     public String toString() {
         return "GRNItem{" +

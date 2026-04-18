@@ -16,9 +16,10 @@ import java.util.List;
 import java.util.Map;
 
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
-
-    Page<SalesOrder> findByUser_Id(Long userId, Pageable pageable);
+    Page<SalesOrder> findByIsDeleted(Boolean isDeleted, Pageable pageable);
+    Page<SalesOrder> findByUser_IdAndIsDeletedFalse(Long userId, Pageable pageable);
     Long countByStatusAndIsDeletedFalse(SalesOrderStatus status);
+    List<SalesOrder> findBycustomer_id(Long customerId);
 
     @Query(value = """
     SELECT

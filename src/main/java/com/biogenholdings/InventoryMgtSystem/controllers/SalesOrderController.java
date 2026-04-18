@@ -62,4 +62,14 @@ public class SalesOrderController {
         Response response = salesOrderService.createSalesOrderPayment(dto);
         return ResponseEntity.status(response.getStatus()).body(response);
     }
+
+    @GetMapping("/customer/{customerId}")
+    public ResponseEntity<Response> getCutomerSalesOrders(@PathVariable Long customerId){
+        return ResponseEntity.ok(salesOrderService.getCustomerSalesOrders(customerId));
+    }
+
+    @GetMapping("/{salesOrderId}")
+    public ResponseEntity<Response> getSalesOrderByID(@PathVariable Long salesOrderId){
+        return ResponseEntity.ok(salesOrderService.getSalesOrderById(salesOrderId));
+    }
 }
