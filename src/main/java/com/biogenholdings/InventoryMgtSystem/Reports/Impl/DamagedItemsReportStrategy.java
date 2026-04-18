@@ -28,7 +28,7 @@ public class DamagedItemsReportStrategy implements ReportStrategy {
     public String getOrientation(List<Map<String, Object>> data) {
         if (data == null || data.isEmpty()) return "portrait";
 
-        int columnCount = data.get(0).size();
+        int columnCount = data.getFirst().size();
 
         return columnCount > 6 ? "landscape" : "portrait";
     }

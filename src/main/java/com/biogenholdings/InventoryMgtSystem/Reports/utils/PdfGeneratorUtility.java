@@ -12,7 +12,7 @@ public class PdfGeneratorUtility {
 
     public static byte[] createPdf(String title, List<Map<String, Object>> data, String orientation) {
 
-        Boolean isLandscape = orientation == "landscape" ? Boolean.TRUE : Boolean.FALSE;
+        Boolean isLandscape = orientation.equals("landscape") ? Boolean.TRUE : Boolean.FALSE;
         Rectangle pageSize = isLandscape
                 ? PageSize.A4.rotate()   // landscape
                 : PageSize.A4;           // portrait
@@ -37,7 +37,7 @@ public class PdfGeneratorUtility {
                 document.add(new Paragraph("No data available for this report."));
             } else {
                 // Determine columns from the first row keys
-                Set<String> keys = data.get(0).keySet();
+                Set<String> keys = data.getFirst().keySet();
                 PdfPTable table = new PdfPTable(keys.size());
                 table.setWidthPercentage(100);
 
