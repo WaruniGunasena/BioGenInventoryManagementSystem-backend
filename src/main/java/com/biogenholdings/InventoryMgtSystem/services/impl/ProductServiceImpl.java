@@ -25,6 +25,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -77,6 +78,7 @@ public class ProductServiceImpl implements ProductService {
         productToSave.setIsDeleted(false);
 
         Product savedProduct = productRepository.save(productToSave);
+
         System.out.println("DEBUG: Incoming sellingPrice = " + productDTO.getSellingPrice());
         ProductStock stock = ProductStock.builder()
                 .product(savedProduct)
@@ -147,12 +149,17 @@ public class ProductServiceImpl implements ProductService {
             existingProduct.setOpeningBalance(newOpening);
             productStockRepository.save(stock);
         }
-        if(productDTO.getSellingPrice() != null){
+        if (productDTO.getSellingPrice() != null) {
+
             ProductStock productStock = productStockRepository.findByProductId(productDTO.getId())
-                    .orElseThrow(()-> new NotFoundException("Product Not found"));
-            if(productDTO.getSellingPrice().compareTo(productStock.getSellingPrice()) > 0){
+                    .orElseThrow(() -> new NotFoundException("Product Stock record not found"));
+
+            if (productDTO.getSellingPrice().compareTo(BigDecimal.ZERO) > 0) {
                 productStock.setSellingPrice(productDTO.getSellingPrice());
+            } else {
+                throw new IllegalArgumentException("Selling price must be a positive value");
             }
+
             productStockRepository.save(productStock);
         }
 
