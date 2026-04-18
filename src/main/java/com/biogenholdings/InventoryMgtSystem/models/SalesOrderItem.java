@@ -42,4 +42,8 @@ public class SalesOrderItem {
     private BigDecimal discountedPrice;
 
     private String unit;
+
+    private Boolean isReissue;
+
+    private Integer returnQty = 0;
 }

@@ -71,6 +71,8 @@ public class Customer {
 
     private BigDecimal dueBalance;
 
+    private BigDecimal availableReturnCredit; // Total cash-value credit available
+
     @Override
     public String toString() {
         return "Customer{" +
