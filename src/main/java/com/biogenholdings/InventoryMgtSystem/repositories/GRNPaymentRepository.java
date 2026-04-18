@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,4 +24,14 @@ public interface GRNPaymentRepository extends JpaRepository<GRNPayment, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM GRNPayment p " +
+            "WHERE p.createdAt BETWEEN :startDate AND :endDate")
+    BigDecimal sumCompletedOutflow(@Param("startDate") LocalDateTime startDate,
+                                   @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT COUNT(DISTINCT p.grn.id) FROM GRNPayment p " +
+            "WHERE p.createdAt BETWEEN :startDate AND :endDate")
+    long countCompletedPayments(@Param("startDate") LocalDateTime startDate,
+                                @Param("endDate") LocalDateTime endDate);
 }

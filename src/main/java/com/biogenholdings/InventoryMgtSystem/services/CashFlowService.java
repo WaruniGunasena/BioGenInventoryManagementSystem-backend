@@ -6,6 +6,7 @@ import java.time.LocalDate;
 
 public interface CashFlowService {
 
-    Response getPendingCredits(LocalDate startDate, LocalDate endDate);
+    Response getPendingCashFlow(LocalDate startDate, LocalDate endDate);
     Response getCompletedCashFlow(LocalDate startDate, LocalDate endDate);
+    Response getCashFlowSummary(LocalDate startDate, LocalDate endDate);
 }

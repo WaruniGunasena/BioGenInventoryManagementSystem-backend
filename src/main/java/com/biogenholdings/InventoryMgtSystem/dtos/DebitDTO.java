@@ -17,8 +17,9 @@ import java.time.LocalDate;
 
 public class DebitDTO {
 
-    private Long grnId;
+    private Long salesOrderId;
     private String customer;
     private BigDecimal amount;
     private LocalDate date;
+    private String invoiceNumber;
 }

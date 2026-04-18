@@ -354,6 +354,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
         }
 
+        if (salesOrderStatus == SalesOrderStatus.Approved) {
+            salesOrder.setPaymentStatus("PENDING");
+        }
+
         salesOrder.setStatus(salesOrderStatus);
         salesOrder.setApprovedBy(user);
         salesOrder.setApprovedAt(LocalDateTime.now());

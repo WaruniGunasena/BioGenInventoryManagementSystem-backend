@@ -25,7 +25,7 @@ public class CashFlowController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
-        Response pendingCashFlow = cashFlowService.getPendingCredits(startDate, endDate);
+        Response pendingCashFlow = cashFlowService.getPendingCashFlow(startDate, endDate);
         return ResponseEntity.ok(pendingCashFlow);
     }
 
@@ -36,5 +36,14 @@ public class CashFlowController {
 
         Response completedCashFlow = cashFlowService.getCompletedCashFlow(startDate, endDate);
         return ResponseEntity.ok(completedCashFlow);
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<Response> getCashFlowSummary(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        Response summary = cashFlowService.getCashFlowSummary(startDate, endDate);
+        return ResponseEntity.ok(summary);
     }
 }
