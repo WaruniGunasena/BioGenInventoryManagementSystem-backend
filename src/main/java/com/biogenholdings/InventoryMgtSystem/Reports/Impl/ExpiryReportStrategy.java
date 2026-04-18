@@ -21,4 +21,13 @@ public class ExpiryReportStrategy implements ReportStrategy {
         int months = Integer.parseInt(params.getOrDefault("months", "0"));
         return reportRepo.getExpiryReport(months);
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.get(0).size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

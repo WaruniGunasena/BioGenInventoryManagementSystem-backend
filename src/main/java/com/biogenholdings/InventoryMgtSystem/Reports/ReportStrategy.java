@@ -12,4 +12,6 @@ public interface ReportStrategy {
 
     // The actual data fetching logic
     List<Map<String, Object>> getReportData(Map<String, String> params);
+
+    String getOrientation(List<Map<String, Object>> data); // "portrait" or "landscape"
 }

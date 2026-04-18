@@ -20,4 +20,13 @@ public class StockStatusReportStrategy implements ReportStrategy {
         boolean outOfStockOnly = "OUT_OF_STOCK".equalsIgnoreCase(params.get("type"));
         return reportRepo.getStockStatusReport(outOfStockOnly);
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.get(0).size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

@@ -37,4 +37,17 @@ public class ProductReturnController {
     public ResponseEntity<Response> getCustomerreturnSummary(@PathVariable Long customerId){
         return ResponseEntity.ok(productReturnService.getCustomerReturnSummary(customerId));
     }
+
+    @PostMapping("/delete")
+    public ResponseEntity<Response> deleteReturnInvoice(@RequestParam String returnInvoiceId,
+                                                        @RequestParam Long userId ){
+        return ResponseEntity.ok(productReturnService.deleteReturnInvoice(returnInvoiceId,userId));
+    }
+
+    @PostMapping("/approveRtnInvoice")
+    public ResponseEntity<Response> approveRtnInvoice(@RequestParam String returnInvoiceId,
+                                                      @RequestParam Long userId){
+        return ResponseEntity.ok(productReturnService.approveReturn(returnInvoiceId,userId));
+
+    }
 }

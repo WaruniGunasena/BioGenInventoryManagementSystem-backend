@@ -10,8 +10,15 @@ import java.util.Set;
 
 public class PdfGeneratorUtility {
 
-    public static byte[] createPdf(String title, List<Map<String, Object>> data) {
-        Document document = new Document(PageSize.A4);
+    public static byte[] createPdf(String title, List<Map<String, Object>> data, String orientation) {
+
+        Boolean isLandscape = orientation == "landscape" ? Boolean.TRUE : Boolean.FALSE;
+        Rectangle pageSize = isLandscape
+                ? PageSize.A4.rotate()   // landscape
+                : PageSize.A4;           // portrait
+
+
+        Document document = new Document(pageSize);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         try {
@@ -57,4 +64,5 @@ public class PdfGeneratorUtility {
 
         return out.toByteArray();
     }
+
 }

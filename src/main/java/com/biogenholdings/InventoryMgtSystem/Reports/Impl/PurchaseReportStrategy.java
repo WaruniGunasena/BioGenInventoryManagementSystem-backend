@@ -27,4 +27,13 @@ public class PurchaseReportStrategy implements ReportStrategy {
         }
         return reportRepo.getPurchaseReport(start, end);
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.get(0).size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

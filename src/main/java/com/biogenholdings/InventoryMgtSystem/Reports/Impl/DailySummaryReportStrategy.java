@@ -53,4 +53,13 @@ public class DailySummaryReportStrategy implements ReportStrategy {
 
         return List.of(summary);
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.get(0).size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

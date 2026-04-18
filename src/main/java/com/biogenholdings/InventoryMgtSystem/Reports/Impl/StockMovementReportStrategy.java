@@ -22,4 +22,13 @@ public class StockMovementReportStrategy implements ReportStrategy {
         LocalDate end = LocalDate.parse(params.get("endDate"));
         return reportRepo.getStockMovement(start.atStartOfDay(), end.atTime(23, 59, 59));
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.get(0).size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

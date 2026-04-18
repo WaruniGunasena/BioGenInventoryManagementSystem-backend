@@ -11,16 +11,17 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class ProductWiseReportStrategy implements ReportStrategy {
+public class SalesReturnReportStrategy implements ReportStrategy {
     final private ReportRepository reportRepo;
-    @Override public String getReportIdentifier() { return "PRODUCT_WISE"; }
-    @Override public String getReportName() { return "Product-wise Sales Performance Report"; }
+
+    @Override public String getReportIdentifier() { return "SALES_RETURN"; }
+    @Override public String getReportName() { return "Sales Return Summary Report"; }
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
-        LocalDate start = LocalDate.parse(params.get("startDate"));
-        LocalDate end = LocalDate.parse(params.get("endDate"));
-        return reportRepo.getProductWiseSales(start, end);
+        LocalDate start = LocalDate.parse(params.getOrDefault("startDate", LocalDate.now().toString()));
+        LocalDate end = LocalDate.parse(params.getOrDefault("endDate", LocalDate.now().toString()));
+        return reportRepo.getSalesReturnReport(start.atStartOfDay(), end.atTime(23,59,59));
     }
 
     @Override

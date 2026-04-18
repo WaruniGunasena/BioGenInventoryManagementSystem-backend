@@ -19,4 +19,13 @@ public class OutstandingReportStrategy implements ReportStrategy {
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
         return reportRepo.getOutstandingReport();
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.get(0).size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

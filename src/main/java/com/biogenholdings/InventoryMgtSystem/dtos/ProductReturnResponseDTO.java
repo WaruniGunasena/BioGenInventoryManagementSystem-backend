@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.dtos;
 
+import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,4 +38,6 @@ public class ProductReturnResponseDTO {
     // Totals
     private BigDecimal totalReturnAmount;
     private BigDecimal totalCommissionReversal;
+
+    private SalesOrderStatus status;
 }

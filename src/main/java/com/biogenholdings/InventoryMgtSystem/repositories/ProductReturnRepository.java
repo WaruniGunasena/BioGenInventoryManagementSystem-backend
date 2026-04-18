@@ -18,7 +18,7 @@ public interface ProductReturnRepository extends JpaRepository<ProductReturn, Lo
     // Find a specific return by its unique audit number
     Optional<ProductReturn> findByReturnNumber(String returnNumber);
 
-    Page<ProductReturn> findAll(@Nonnull Pageable pageable);
+    Page<ProductReturn> findByIsDeletedFalse(@Nonnull Pageable pageable);
 
     // Get all returns linked to a specific Sales Order/Invoice
     List<ProductReturn> findBySalesOrderId(Long salesOrderId);
@@ -35,4 +35,6 @@ public interface ProductReturnRepository extends JpaRepository<ProductReturn, Lo
     Double getTotalCommissionReversal(@Param("repId") Long repId,
                                       @Param("startDate") java.time.LocalDateTime startDate,
                                       @Param("endDate") java.time.LocalDateTime endDate);
+
+
 }
