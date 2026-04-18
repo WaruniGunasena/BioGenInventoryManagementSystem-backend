@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -287,4 +288,42 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "WHERE gp.is_deleted = false AND gp.created_at BETWEEN :start AND :end " +
             "ORDER BY gp.created_at DESC", nativeQuery = true)
     List<Map<String, Object>> getSupplierPaymentLog(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // 7.2 Expense Report (All payments to suppliers)
+    @Query(value = "SELECT gp.created_at as Date, s.name as Supplier, gp.payment_method as Method, " +
+            "gp.amount as Amount, " +
+            "FROM grn_payments gp JOIN grn g ON gp.grn_id = g.id " +
+            "JOIN suppliers s ON g.supplier_id = s.id " +
+            "WHERE gp.is_deleted = false AND gp.created_at BETWEEN :start AND :end", nativeQuery = true)
+    List<Map<String, Object>> getExpenseReport(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Opening Balance Logic: (Total Inflow - Total Outflow) BEFORE the startDate
+    @Query(value = "SELECT " +
+            "((SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments WHERE created_at < :start AND is_deleted = false) - " +
+            "(SELECT COALESCE(SUM(amount), 0) FROM grn_payments WHERE created_at < :start AND is_deleted = false)) as balance", nativeQuery = true)
+    BigDecimal getOpeningBalance(@Param("start") LocalDateTime start);
+
+    // 8.1 Sales Return Report (All approved returns)
+    @Query(value = "SELECT pr.return_number as ReturnNo, so.invoice_number as RefInvoice, " +
+            "c.name as Customer, pr.return_date as Date, pr.total_return_amount as Amount " +
+            "FROM product_returns pr " +
+            "JOIN sales_orders so ON pr.sales_order_id = so.id " +
+            "JOIN customers c ON pr.customer_id = c.id " +
+            "WHERE pr.status = 'Approved' AND pr.is_deleted = false " +
+            "AND pr.return_date BETWEEN :start AND :end " +
+            "ORDER BY pr.return_date DESC", nativeQuery = true)
+    List<Map<String, Object>> getSalesReturnReport(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // 8.3 & 8.4 Damaged/Expired Items Report
+    // Logic: Items where is_reusable = false (Discarded items)
+    @Query(value = "SELECT pr.return_date as Date, p.name as Product, " +
+            "pri.quantity as Qty, pri.return_reason as Reason, pri.sub_total as LossAmount " +
+            "FROM product_return_items pri " +
+            "JOIN product_returns pr ON pri.product_return_id = pr.id " +
+            "JOIN products p ON pri.product_id = p.id " +
+            "WHERE pr.status = 'Approved' AND pri.is_reusable = false " +
+            "AND pr.return_date BETWEEN :start AND :end " +
+            "ORDER BY pr.return_date DESC", nativeQuery = true)
+    List<Map<String, Object>> getNonReusableReturnReport(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
 }

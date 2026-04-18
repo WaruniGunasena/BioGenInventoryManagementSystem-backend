@@ -35,7 +35,7 @@ public class ReportServiceImpl implements IReportService {
         }
 
         List<Map<String, Object>> data = strategy.getReportData(params);
-        return PdfGeneratorUtility.createPdf(strategy.getReportName(), data);
+        return PdfGeneratorUtility.createPdf(strategy.getReportName(), data,strategy.getOrientation(data));
     }
 
     @Override

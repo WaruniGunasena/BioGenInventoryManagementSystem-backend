@@ -31,4 +31,13 @@ public class OrderReportStrategy implements ReportStrategy {
         String status = params.get("status");
         return reportRepo.getOrdersByStatus(status);
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.getFirst().size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

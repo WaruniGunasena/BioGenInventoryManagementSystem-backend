@@ -5,21 +5,23 @@ import com.biogenholdings.InventoryMgtSystem.repositories.ReportRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class ExpiryReportStrategy implements ReportStrategy {
+public class SalesReturnReportStrategy implements ReportStrategy {
     final private ReportRepository reportRepo;
-    @Override public String getReportIdentifier() { return "EXPIRY_REPORT"; }
-    @Override public String getReportName() { return "Product Expiry / Near Expiry Report"; }
+
+    @Override public String getReportIdentifier() { return "SALES_RETURN"; }
+    @Override public String getReportName() { return "Sales Return Summary Report"; }
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
-        // Default to 0 (already expired) if no month parameter is passed
-        int months = Integer.parseInt(params.getOrDefault("months", "0"));
-        return reportRepo.getExpiryReport(months);
+        LocalDate start = LocalDate.parse(params.getOrDefault("startDate", LocalDate.now().toString()));
+        LocalDate end = LocalDate.parse(params.getOrDefault("endDate", LocalDate.now().toString()));
+        return reportRepo.getSalesReturnReport(start.atStartOfDay(), end.atTime(23,59,59));
     }
 
     @Override

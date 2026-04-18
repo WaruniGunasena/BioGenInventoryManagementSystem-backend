@@ -22,4 +22,13 @@ public class ProductWiseReportStrategy implements ReportStrategy {
         LocalDate end = LocalDate.parse(params.get("endDate"));
         return reportRepo.getProductWiseSales(start, end);
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.getFirst().size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

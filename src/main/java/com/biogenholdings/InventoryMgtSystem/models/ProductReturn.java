@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.models;
 
+import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -57,4 +58,27 @@ public class ProductReturn {
     @ManyToOne
     @JoinColumn(name = "created_by")
     private User createdBy; // The user who processed the return
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
+
+    @ManyToOne
+    @JoinColumn(name = "deleted_by")
+    private User deletedBy;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @ManyToOne
+    @JoinColumn(name = "approved_by")
+    private User approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+
+    @Column(name = "status")
+    @Enumerated(EnumType.STRING)
+    private SalesOrderStatus status;
+
 }

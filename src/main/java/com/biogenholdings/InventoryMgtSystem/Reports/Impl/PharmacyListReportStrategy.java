@@ -20,4 +20,13 @@ public class PharmacyListReportStrategy implements ReportStrategy {
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
         return reportRepo.getPharmacyList();
     }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.getFirst().size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
 }

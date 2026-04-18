@@ -69,9 +69,11 @@ public class Customer {
 
     }
 
-    private BigDecimal dueBalance;
+    @Builder.Default
+    private BigDecimal dueBalance = BigDecimal.ZERO;
 
-    private BigDecimal availableReturnCredit; // Total cash-value credit available
+    @Builder.Default
+    private BigDecimal availableReturnCredit = BigDecimal.ZERO;
 
     @Override
     public String toString() {
