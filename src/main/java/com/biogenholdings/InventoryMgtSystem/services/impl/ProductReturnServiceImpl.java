@@ -36,14 +36,13 @@ public class ProductReturnServiceImpl implements ProductReturnService {
     @Transactional
     @Override
     public Response processProductReturn(ProductReturnRequestDTO request) {
-        // 1. Fetch the Original Sales Order & User
+
         SalesOrder order = salesOrderRepository.findById(request.getSalesOrderId())
                 .orElseThrow(() -> new RuntimeException("Original Sales Order not found"));
 
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new NotFoundException("User not Found"));
 
-        // 2. Initialize the Header with Status PENDING
         ProductReturn productReturn = ProductReturn.builder()
                 .returnNumber("PENDING-" + System.currentTimeMillis())
                 .salesOrder(order)
@@ -70,25 +69,26 @@ public class ProductReturnServiceImpl implements ProductReturnService {
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException("Product " + itemRequest.getProductId() + " was not in original invoice"));
 
-            if (itemRequest.getQuantity() > (originalItem.getQuantity() - originalItem.getReturnQty())) {
+            int alreadyReturnedQty = (originalItem.getReturnQty() != null) ? originalItem.getReturnQty() : 0;
+
+            if (itemRequest.getQuantity() > (originalItem.getQuantity() - alreadyReturnedQty)) {
                 throw new RuntimeException("Return quantity exceeds remaining returnable quantity for " + originalItem.getProduct().getName());
             }
 
-            Integer otherPendingQty = productReturnItemRepository.sumQtyBySalesOrderAndProductAndStatus(
+            Integer pendingResult = productReturnItemRepository.sumQtyBySalesOrderAndProductAndStatus(
                     order.getId(),
-                    itemRequest.getProductId()
-            );
+                    itemRequest.getProductId());
+
+            int otherPendingQty = (pendingResult != null) ? pendingResult : 0;
 
             // 2. Real Available = Original - (Already Approved) - (Other Pending)
-            if(otherPendingQty != null){
-                int maxAllowed = originalItem.getQuantity() - originalItem.getReturnQty() - otherPendingQty;
 
-                if (itemRequest.getQuantity() > maxAllowed) {
-                    throw new RuntimeException("Can not update max limit exceeded: " + originalItem.getProduct().getName() +
-                            ". You already have " + otherPendingQty + " units pending in another return. " +
-                            "Max available to return now is: " + maxAllowed + ". Please delete the existing pending note to proceed.");
-                }
+            int maxAllowed = originalItem.getQuantity() - alreadyReturnedQty - otherPendingQty;
+
+            if (itemRequest.getQuantity() > maxAllowed) {
+                throw new RuntimeException("Limit exceeded. " + otherPendingQty + " units are pending in another note.");
             }
+
 
             // 4. Calculate Values
             BigDecimal unitPrice = originalItem.getSellingPrice();
@@ -235,6 +235,7 @@ public class ProductReturnServiceImpl implements ProductReturnService {
                                             .productName(p.getName())
                                             .quantity(totalQty)
                                             .units(p.getUnit())
+                                            .packSize(p.getPackSize())
                                             .build();
                                 }
                         )
@@ -267,7 +268,7 @@ public class ProductReturnServiceImpl implements ProductReturnService {
 
         // 2. Prevent double-deletion
         if (Boolean.TRUE.equals(productReturn.getIsDeleted())) {
-            throw new RuntimeException("This return invoice is already deleted.");
+            throw new RuntimeException("Already deleted.");
         }
 
         // 3. CRITICAL VALIDATION: Only allow deletion if status is PENDING
@@ -313,7 +314,8 @@ public class ProductReturnServiceImpl implements ProductReturnService {
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException("Original order link broken"));
 
-            originalItem.setReturnQty(originalItem.getReturnQty() + item.getQuantity());
+            int currentReturnQty = (originalItem.getReturnQty() != null) ? originalItem.getReturnQty() : 0;
+            originalItem.setReturnQty(currentReturnQty + item.getQuantity());
             salesOrderItemRepository.save(originalItem);
 
             // 2. Logic for Reissue vs Restock
@@ -335,9 +337,10 @@ public class ProductReturnServiceImpl implements ProductReturnService {
 
         // 3. Update Customer Finances
         Customer customer = productReturn.getCustomer();
-        BigDecimal creditLimit = customer.getAvailableReturnCredit() != null ? customer.getCreditLimit() : BigDecimal.ZERO;
+
         if (amountToReduceFromDue.compareTo(BigDecimal.ZERO) > 0) {
             customer.setDueBalance(customer.getDueBalance().subtract(amountToReduceFromDue));
+            BigDecimal creditLimit = customer.getAvailableReturnCredit() != null ? customer.getAvailableReturnCredit() : BigDecimal.ZERO;
             customer.setAvailableReturnCredit(creditLimit.add(amountToReduceFromDue));
             customerRepository.save(customer);
         }
