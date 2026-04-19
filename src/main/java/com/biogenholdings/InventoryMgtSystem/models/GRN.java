@@ -37,7 +37,7 @@ public class GRN {
     private Supplier supplier;
 
     @Builder.Default
-    @OneToMany(mappedBy = "grn", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "grn", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @EqualsAndHashCode.Exclude
     private List<GRNItem> items = new ArrayList<>();
 

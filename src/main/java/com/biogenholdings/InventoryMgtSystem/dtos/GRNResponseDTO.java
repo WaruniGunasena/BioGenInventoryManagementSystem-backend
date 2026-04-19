@@ -24,4 +24,5 @@ public class GRNResponseDTO {
 
     private BigDecimal totalPaid;
     private BigDecimal dueBalance;
+
 }

@@ -47,4 +47,8 @@ public class SalesOrderResponseDTO {
     private BigDecimal dueBalance;
 
     private String paymentStatus;
+    private BigDecimal previousDueAmount;
+    private String invoiceDueDate;
+
+    private BigDecimal returnCredits;
 }

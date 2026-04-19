@@ -19,4 +19,5 @@ public class SalesOrderItemRequestDTO {
     private BigDecimal discountPercent;
     private BigDecimal discountedPrice;
     private String unit;
+    private Boolean isReissue;
 }

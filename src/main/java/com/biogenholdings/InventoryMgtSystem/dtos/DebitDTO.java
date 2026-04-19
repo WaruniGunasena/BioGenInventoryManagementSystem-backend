@@ -1,5 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.dtos;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,11 +13,13 @@ import java.time.LocalDate;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 
 public class DebitDTO {
 
-    private Long grnId;
+    private Long salesOrderId;
     private String customer;
     private BigDecimal amount;
     private LocalDate date;
+    private String invoiceNumber;
 }

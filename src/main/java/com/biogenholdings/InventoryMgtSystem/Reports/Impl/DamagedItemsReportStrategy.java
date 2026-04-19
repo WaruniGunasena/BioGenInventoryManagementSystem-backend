@@ -1,0 +1,35 @@
+package com.biogenholdings.InventoryMgtSystem.Reports.Impl;
+
+import com.biogenholdings.InventoryMgtSystem.Reports.ReportStrategy;
+import com.biogenholdings.InventoryMgtSystem.repositories.ReportRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+@Component
+@RequiredArgsConstructor
+public class DamagedItemsReportStrategy implements ReportStrategy {
+    final private ReportRepository reportRepo;
+
+    @Override public String getReportIdentifier() { return "DAMAGED_ITEMS"; }
+    @Override public String getReportName() { return "Damaged & Non-Reusable Items Report"; }
+
+    @Override
+    public List<Map<String, Object>> getReportData(Map<String, String> params) {
+        LocalDate start = LocalDate.parse(params.getOrDefault("startDate", LocalDate.now().toString()));
+        LocalDate end = LocalDate.parse(params.getOrDefault("endDate", LocalDate.now().toString()));
+        return reportRepo.getNonReusableReturnReport(start.atStartOfDay(), end.atTime(23,59,59));
+    }
+
+    @Override
+    public String getOrientation(List<Map<String, Object>> data) {
+        if (data == null || data.isEmpty()) return "portrait";
+
+        int columnCount = data.getFirst().size();
+
+        return columnCount > 6 ? "landscape" : "portrait";
+    }
+}

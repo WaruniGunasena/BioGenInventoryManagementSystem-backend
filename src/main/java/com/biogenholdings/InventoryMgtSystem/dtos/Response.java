@@ -44,6 +44,7 @@ public class Response {
     private List<StockResponseDTO> productStocks;
 
     private List<SalesOrderResponseDTO> salesOrderList;
+    private SalesOrderResponseDTO salesOrder;
 
     private Integer currentPage;
     private Long totalItems;
@@ -52,5 +53,11 @@ public class Response {
 
     private List<CreditDTO> credits;
     private List<DebitDTO> debits;
+
+    private CashFlowSummaryDTO cashFlowSummary;
+    private List<ProductReturnResponseDTO> productReturnList;
+    private ProductReturnResponseDTO productReturn;
+
+    private CustomerWiseReturnItemDTO customerWiseReturnItemDTO;
 
 }

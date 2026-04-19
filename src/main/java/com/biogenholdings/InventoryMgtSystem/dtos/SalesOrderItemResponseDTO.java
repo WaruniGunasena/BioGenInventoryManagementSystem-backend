@@ -27,4 +27,8 @@ public class SalesOrderItemResponseDTO {
     private String unit;
 
     private ProductDTO product;
+
+    private Boolean isReissue;
+
+    private Integer returnQty;
 }

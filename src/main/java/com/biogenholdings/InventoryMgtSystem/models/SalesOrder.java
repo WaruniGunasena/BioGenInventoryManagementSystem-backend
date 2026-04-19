@@ -88,5 +88,7 @@ public class SalesOrder {
     @Column(name = "payment_status")
     private String paymentStatus;
 
+    private BigDecimal returnCredits;
+
 
 }
