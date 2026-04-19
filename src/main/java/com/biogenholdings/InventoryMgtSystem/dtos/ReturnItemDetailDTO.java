@@ -20,6 +20,7 @@ public class ReturnItemDetailDTO {
     private BigDecimal unitPrice;
     private BigDecimal subTotal;
     private String reason;
-    private Boolean isReusable; // To show "Restocked" vs "Discarded/For Reissue" on invoice
+    private Boolean isReusable;
     private String units;
+    private String packSize;
 }
