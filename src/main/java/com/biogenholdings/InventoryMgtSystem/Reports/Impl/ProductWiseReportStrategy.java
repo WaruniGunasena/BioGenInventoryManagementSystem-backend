@@ -20,6 +20,7 @@ public class ProductWiseReportStrategy implements ReportStrategy {
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
         LocalDate start = LocalDate.parse(params.get("startDate"));
         LocalDate end = LocalDate.parse(params.get("endDate"));
+
         return reportRepo.getProductWiseSales(start, end);
     }
 
@@ -30,5 +31,15 @@ public class ProductWiseReportStrategy implements ReportStrategy {
         int columnCount = data.getFirst().size();
 
         return columnCount > 6 ? "landscape" : "portrait";
+    }
+
+    @Override
+    public List<String> getColumnOrder() {
+        return List.of("Item_Code","Product_Name","Total_Qty","Total_Amount");
+    }
+
+    @Override
+    public Boolean addGrandTotal(){
+        return Boolean.TRUE;
     }
 }

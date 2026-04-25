@@ -90,5 +90,8 @@ public class SalesOrder {
 
     private BigDecimal returnCredits;
 
+    private Boolean isDelivered;
+
+
 
 }

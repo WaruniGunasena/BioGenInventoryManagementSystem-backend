@@ -2,17 +2,18 @@ package com.biogenholdings.InventoryMgtSystem.Reports.Impl;
 
 import com.biogenholdings.InventoryMgtSystem.Reports.ReportStrategy;
 import com.biogenholdings.InventoryMgtSystem.repositories.ReportRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
 
 @Component
+@RequiredArgsConstructor
 public class TopCustomersReportStrategy implements ReportStrategy {
 
-    @Autowired
-    private ReportRepository reportRepo;
+
+    final private ReportRepository reportRepo;
 
     @Override
     public String getReportIdentifier() {

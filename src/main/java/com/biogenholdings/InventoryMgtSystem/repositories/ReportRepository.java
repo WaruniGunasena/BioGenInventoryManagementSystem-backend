@@ -124,8 +124,12 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getDashboardTopSelling();
 
     // 3.3 Invoice-wise Report (Lists every individual Invoice)
-    @Query(value = "SELECT so.invoice_number as InvoiceNumber, c.name as CustomerName, " +
-            "so.invoice_date as Date, so.grand_total as Amount, so.status as Status " +
+    @Query(value = "SELECT "+
+            " so.status as Status, "+
+            " so.grand_total as Amount,"+
+            "c.name as Customer_Name, "+
+            "so.invoice_date as Date,"+
+            "so.invoice_number as Invoice_Number "+
             "FROM sales_orders so " +
             "JOIN customers c ON so.customer_id = c.id " +
             "WHERE UPPER(so.status) = 'APPROVED' AND so.is_deleted = false " +
@@ -134,8 +138,8 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getInvoiceWiseSales(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
     // 3.4 Product-wise Sales (Lists every Product sold)
-    @Query(value = "SELECT p.name as ProductName, p.item_code as ItemCode, " +
-            "SUM(soi.quantity) as TotalQty, SUM(soi.total_amount) as TotalRevenue " +
+    @Query(value = "SELECT p.name as Product_Name, p.item_code as Item_Code, " +
+            "SUM(soi.quantity) as Total_Qty, SUM(soi.total_amount) as Total_Amount " +
             "FROM sales_order_items soi " +
             "JOIN products p ON soi.product_id = p.id " +
             "JOIN sales_orders so ON soi.sales_order_id = so.id " +
@@ -146,8 +150,8 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getProductWiseSales(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
     // 3.5 Customer-wise Sales (Lists every Customer who bought)
-    @Query(value = "SELECT c.name as CustomerName, COUNT(so.id) as TotalInvoices, " +
-            "SUM(so.grand_total) as TotalRevenue " +
+    @Query(value = "SELECT c.name as Customer_Name, COUNT(so.id) as Total_Invoices, " +
+            "SUM(so.grand_total) as Total_Revenue " +
             "FROM sales_orders so " +
             "JOIN customers c ON so.customer_id = c.id " +
             "WHERE UPPER(so.status) = 'APPROVED' AND so.is_deleted = false " +
@@ -159,13 +163,13 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     // 3.6 Sales Summary (Financial totals)
     // Note: NetSales logic usually subtracts discounts from Gross.
     @Query(value = "SELECT " +
-            "COALESCE(SUM(grand_total), 0) as GrossSales, " +
-            "COALESCE(SUM(CASE WHEN status = 'Approved' THEN grand_total ELSE 0 END), 0) as NetSales, " +
-            "(SELECT COALESCE(SUM(discounted_price), 0) FROM sales_order_items soi " +
-            " JOIN sales_orders so2 ON soi.sales_order_id = so2.id " +
-            " WHERE UPPER(so2.status) = 'APPROVED' AND so2.invoice_date BETWEEN :start AND :end) as TotalDiscount " +
+            "COUNT(CASE WHEN UPPER(status) = 'APPROVED' THEN 1 END) as Approved_Invoices, " +
+            "COUNT(CASE WHEN UPPER(status) = 'PENDING' THEN 1 END) as Pending_Invoices, " +
+            "COALESCE(SUM(grand_total), 0) as Gross_Sales, " + // Sum of everything (Approved + Pending)
+            "COALESCE(SUM(CASE WHEN UPPER(status) = 'APPROVED' THEN grand_total ELSE 0 END), 0) as Net_Sales " + // Only Approved
             "FROM sales_orders " +
-            "WHERE UPPER(status) = 'APPROVED' AND is_deleted = false " +
+            "WHERE is_deleted = false " +
+            "AND status IN ('Approved', 'Pending', 'APPROVED', 'PENDING') " +
             "AND invoice_date BETWEEN :start AND :end", nativeQuery = true)
     Map<String, Object> getSalesSummary(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
@@ -326,4 +330,43 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "ORDER BY pr.return_date DESC", nativeQuery = true)
     List<Map<String, Object>> getNonReusableReturnReport(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+    // Fetch Customer Header Details
+    @Query(value = "SELECT c.name, c.address, c.credit_period, c.due_balance, MAX(pay.created_at) AS Last_Tx_Date, "+
+    "(SELECT pay2.amount FROM sales_order_payments pay2 INNER JOIN sales_orders s2 ON pay2.sales_order_id = s2.id " +
+    " WHERE s2.customer_id = c.id AND pay2.is_deleted = false ORDER BY pay2.created_at DESC, pay2.id DESC  LIMIT 1 ) AS Last_Tx_Amount "+
+    "FROM customers c LEFT JOIN sales_orders s ON s.customer_id = c.id LEFT JOIN sales_order_payments pay ON pay.sales_order_id = s.id AND pay.is_deleted = false " +
+    "WHERE c.id = :cId GROUP BY c.id, c.name, c.address, c.credit_period, c.due_balance;", nativeQuery = true)
+    Map<String, Object> getCustomerDetailHeader(@Param("cId") Long customerId);
+
+    // Fetch All Invoices for that Customer
+    @Query(value =
+            "SELECT " +
+                    "s.invoice_number, " +
+                    "s.invoice_date, " +
+                    "s.grand_total AS Amount, " +
+                    "s.status, " +
+                    "s.payment_status, " +
+
+                    "CASE " +
+                    "   WHEN s.payment_status = 'PAID' THEN 'PAID' " +
+                    "   WHEN TRIM(UPPER(c.credit_period)) = 'CASH' THEN 'PAID' " +
+
+                    "   WHEN s.payment_status IS NULL OR s.payment_status IN ('PENDING','PARTIAL') THEN " +
+                    "       CASE " +
+                    "           WHEN (CAST(c.credit_period AS SIGNED) - DATEDIFF(CURDATE(), s.invoice_date)) < 0 THEN 'OVERDUE' " +
+                    "           ELSE CONCAT((CAST(c.credit_period AS SIGNED) - DATEDIFF(CURDATE(), s.invoice_date)), ' DAYS LEFT') " +
+                    "       END " +
+
+                    "   ELSE '-' " +
+                    "END AS remaining_days " +
+
+                    "FROM sales_orders s " +
+                    "INNER JOIN customers c ON s.customer_id = c.id " +
+                    "WHERE s.customer_id = :cId " +
+                    "AND s.is_deleted = false " +
+                    "ORDER BY s.invoice_date DESC",
+
+            nativeQuery = true
+    )
+    List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerId);
 }

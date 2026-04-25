@@ -31,4 +31,10 @@ public class CustomerWiseReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+        return List.of("Customer_Name", "Total_Revenue", "Total_Invoices");
+    }
+
 }

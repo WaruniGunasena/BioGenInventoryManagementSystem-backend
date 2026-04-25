@@ -31,4 +31,11 @@ public class InvoiceWiseReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+        return List.of("Date", "Invoice_Number", "Customer_Name", "Amount", "Status");
+    }
+
+
 }
