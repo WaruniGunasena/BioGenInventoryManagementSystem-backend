@@ -44,6 +44,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final SalesOrderPaymentRepository salesOrderPaymentRepository;
     private final ProductReturnItemRepository productReturnItemRepository;
     private final ModelMapper modelMapper;
+    private final SalesCommissionSummaryRepository commissionSummaryRepository;
+    // private final SalesCommissionItemRepository commissionItemRepository;
 
     @Override
     public String generateInvoiceNumber() {
@@ -356,6 +358,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         if (salesOrderStatus == SalesOrderStatus.Approved) {
             salesOrder.setPaymentStatus("PENDING");
+
+            createCommissionRecords(salesOrder);
         }
 
         salesOrder.setStatus(salesOrderStatus);
@@ -370,6 +374,68 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .status(200)
                 .message(message)
                 .build();
+    }
+
+    private void createCommissionRecords(SalesOrder order) {
+        // 1. Initialize the Summary
+        SalesCommissionSummary summary = SalesCommissionSummary.builder()
+                .salesOrderId(order.getId().toString())
+                .invoiceNumber(order.getInvoiceNumber())
+                .salesRepId(order.getUser().getId())
+                .customerId(order.getCustomer().getId())
+                .invoiceDate(order.getInvoiceDate().atStartOfDay()) // Converting LocalDate to LocalDateTime
+                .CommissionableAmount(BigDecimal.ZERO)
+                .ReturnCommission(BigDecimal.ZERO)
+                .TotalCommission(BigDecimal.ZERO)
+                .items(new ArrayList<>())
+                .build();
+
+        BigDecimal totalOrderCommission = BigDecimal.ZERO;
+        BigDecimal totalCommissionableAmount = BigDecimal.ZERO;
+
+        List<SalesCommissionItem> commissionItems = new ArrayList<>();
+
+        // 2. Process each item from the Sales Order
+        for (SalesOrderItem orderItem : order.getItems()) {
+            Product product = orderItem.getProduct();
+
+            // Use the commission rate from the product (manager's intention)
+            BigDecimal ratePercent = (product.getSRepCommissionRate() != null) ?
+                    product.getSRepCommissionRate() : BigDecimal.ZERO;
+
+            // Skip if rate is 0 or null
+            if (ratePercent.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            // Formula: (Qty * DiscountedPrice) * (Rate / 100)
+            BigDecimal itemTotalValue = orderItem.getSellingPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
+            BigDecimal itemCommission = itemTotalValue.multiply(ratePercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+
+            SalesCommissionItem commItem = SalesCommissionItem.builder()
+                    .summary(summary)
+                    .productId(product.getId())
+                    .productName(product.getName())
+                    .quantity(orderItem.getQuantity())
+                    .sellingPrice(orderItem.getSellingPrice())
+                    .commissionRate(ratePercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP))
+                    .earnedCommission(itemCommission)
+                    .isReturned(false)
+                    .build();
+
+            commissionItems.add(commItem);
+
+            // Accumulate totals for the summary
+            totalCommissionableAmount = totalCommissionableAmount.add(itemTotalValue);
+            totalOrderCommission = totalOrderCommission.add(itemCommission);
+        }
+
+        // 3. Finalize Summary if there are commissionable items
+        if (!commissionItems.isEmpty()) {
+            summary.setItems(commissionItems);
+            summary.setCommissionableAmount(totalCommissionableAmount);
+            summary.setTotalCommission(totalOrderCommission);
+
+            commissionSummaryRepository.save(summary);
+        }
     }
 
     @Override
@@ -461,7 +527,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<SalesOrderResponseDTO> salesOrderResponseDTOS = modelMapper.map(salesOrders, new TypeToken<List<SalesOrderResponseDTO>>() {}.getType());
 
         return Response.builder()
-                .message("Returned data sucessfully")
+                .message("Returned data successfully")
                 .status(200)
                 .salesOrderList(salesOrderResponseDTOS)
                 .build();

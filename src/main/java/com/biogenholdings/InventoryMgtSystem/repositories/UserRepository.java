@@ -17,4 +17,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Page<User> findByIsDeletedFalse(Pageable pageable);
     List<User> findByIsDeletedFalse(Sort sort);
     Boolean existsByRoleAndIsDeletedFalse(UserRole role);
+
+    // Spring interprets this as: "SELECT * FROM users WHERE role = :role"
+    List<User> findByRoleAndIsDeletedFalse(UserRole role);
 }
