@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,9 +58,28 @@ public class DashboardServiceImpl implements DashboardService {
             stockDist.put("Healthy", stockCounts.getHealthy() != null ? stockCounts.getHealthy() : 0L);
         }
 
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+
+        // Today's Approved Total
+        BigDecimal todayTotal = salesOrderRepository.sumApprovedSalesBetween(todayStart, now);
+
+        // Monthly Approved Total
+        BigDecimal monthlyTotal = salesOrderRepository.sumApprovedSalesBetween(monthStart, now);
+
+
+       BigDecimal todaySales = todayTotal != null ? todayTotal : BigDecimal.ZERO;
+       BigDecimal monthlySales = monthlyTotal != null ? monthlyTotal : BigDecimal.ZERO;
+
+
+
         return DashboardResponseDTO.builder()
                 .pendingOrdersCount(pendingOrders)
                 .totalOutstandingBalance(outstanding)
+                .todaySales(todaySales)
+                .monthlySales(monthlySales)
                 .lowStockCount((long) lowStockItems.size())
                 .upcomingExpiriesCount((long) expiringItems.size())
                 .lowStockList(lowStockItems)

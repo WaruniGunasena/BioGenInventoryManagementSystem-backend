@@ -87,6 +87,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .courierCharges(request.getCourierCharges())
                 .additionalDiscountType(request.getAdditionalDiscountType())
                 .returnCredits(request.getReturnCredits())
+                .isDelivered(false)
                 .build();
 
         List<SalesOrderItem> items = new ArrayList<>();
@@ -220,10 +221,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
             ProductStock stock = productStockRepository.findByProductId(item.getProduct().getId())
                     .orElseThrow(() -> new RuntimeException("Stock not found for product: " + item.getProduct().getName()));
-
-            stock.setTotalQuantity(
-                    stock.getTotalQuantity() + item.getQuantity()
-            );
+            if(salesOrder.getStatus() != SalesOrderStatus.Rejected) {
+                stock.setTotalQuantity(
+                        stock.getTotalQuantity() + item.getQuantity()
+                );
+            }
 
             productStockRepository.save(stock);
         }
@@ -234,18 +236,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setIsDeleted(true);
         salesOrder.setDeletedBy(user);
         salesOrder.setDeletedAt(LocalDateTime.now());
+        if(salesOrder.getStatus() != SalesOrderStatus.Rejected) {
+            customer.setDueBalance(customer.getDueBalance().subtract(calculateNetTotal(salesOrder.getGrandTotal(), salesOrder.getCourierCharges(), salesOrder.getAdditionalDiscount(), salesOrder.getReturnCredits(), salesOrder.getAdditionalDiscountType())));
+            customerRepository.save(customer);
+        }
 
-        customer.setDueBalance(customer.getDueBalance().subtract(calculateNetTotal(salesOrder.getGrandTotal(),salesOrder.getCourierCharges(),salesOrder.getAdditionalDiscount(),salesOrder.getReturnCredits(),salesOrder.getAdditionalDiscountType())));
-
-        customerRepository.save(customer);
         salesOrderRepository.save(salesOrder);
 
         return Response.builder()
                 .status(200)
                 .message("Sales Order deleted successfully and stock restored")
                 .build();
-
-
     }
 
     @Override
@@ -266,6 +267,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        Customer customer = customerRepository.findById(order.getCustomer().getId())
+                .orElseThrow(()-> new NotFoundException("Customer not Found"));
+
+        BigDecimal oldNet = calculateNetTotal(
+                order.getGrandTotal(),
+                order.getCourierCharges(),
+                order.getAdditionalDiscount(),
+                order.getReturnCredits(),
+                order.getAdditionalDiscountType()
+        );
+        customer.setDueBalance(customer.getDueBalance().subtract(oldNet));
         for (SalesOrderItem oldItem : order.getItems()) {
 
             ProductStock stock = productStockRepository
@@ -317,6 +329,19 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         order.setAdditionalDiscountType(request.getAdditionalDiscountType());
         order.setCourierCharges(request.getCourierCharges());
         order.setGrandTotal(request.getGrandTotal());
+        order.setReturnCredits(request.getReturnCredits());
+
+        BigDecimal newNet = calculateNetTotal(
+                request.getGrandTotal(),
+                request.getCourierCharges(),
+                request.getAdditionalDiscountValue(),
+                request.getReturnCredits(),
+                request.getAdditionalDiscountType()
+        );
+        customer.setDueBalance(customer.getDueBalance().add(newNet));
+
+        // Save both to persist the changes
+        customerRepository.save(customer);
 
         salesOrderRepository.save(order);
 
@@ -374,7 +399,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
     @Override
     public Long pendingSalesOrderCount() {
-
         return salesOrderRepository.countByStatusAndIsDeletedFalse(SalesOrderStatus.Pending);
     }
 
@@ -456,7 +480,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new NotFoundException("Customer not found"));
 
-        List<SalesOrder> salesOrders = salesOrderRepository.findBycustomer_id(customerId);
+        List<SalesOrder> salesOrders = salesOrderRepository.findBycustomer_idAndIsDeletedFalseAndStatusNot(customerId,SalesOrderStatus.Rejected);
 
         List<SalesOrderResponseDTO> salesOrderResponseDTOS = modelMapper.map(salesOrders, new TypeToken<List<SalesOrderResponseDTO>>() {}.getType());
 
@@ -478,6 +502,20 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .status(200)
                 .message("Successful")
                 .salesOrder(salesOrderResponseDTO)
+                .build();
+    }
+
+    @Override
+    public Response updateSalesOrderDeliveryStatus(Long orderId) {
+        SalesOrder salesOrder = salesOrderRepository.findById(orderId)
+                .orElseThrow(()-> new NotFoundException("Sales order not found"));
+
+        salesOrder.setIsDelivered(Boolean.TRUE);
+        salesOrderRepository.save(salesOrder);
+
+        return Response.builder()
+                .status(200)
+                .message("Delivery status updated sucessfully")
                 .build();
     }
 
@@ -514,6 +552,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .paymentStatus(order.getPaymentStatus())
                 .netTotal(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType()))
                 .previousDueAmount(order.getCustomer().getDueBalance())
+                .isDelivered(order.getIsDelivered() == null ?
+                        Boolean.FALSE : order.getIsDelivered())
                 .invoiceDueDate(
                         order.getCreditTerm() == null ? "N/A" :
                         "cash".equalsIgnoreCase(order.getCreditTerm())
@@ -544,7 +584,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                         .id(item.getId())
                                         .quantity(item.getQuantity())
                                         .sellingPrice(item.getSellingPrice())
-                                        .totalAmount(item.getDiscountedPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                                        .totalAmount( item.getDiscountedPrice().compareTo(BigDecimal.ZERO) > 0 ?
+                                                item.getDiscountedPrice().multiply(BigDecimal.valueOf(item.getQuantity()))
+                                                : item.getSellingPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                                         .discountPercent(item.getDiscountPercent())
                                         .discountedPrice(item.getDiscountedPrice())
                                         .unit(item.getUnit())

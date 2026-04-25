@@ -14,4 +14,8 @@ public interface ReportStrategy {
     List<Map<String, Object>> getReportData(Map<String, String> params);
 
     String getOrientation(List<Map<String, Object>> data); // "portrait" or "landscape"
+
+    default List<String> getColumnOrder() { return null; }
+
+    default Boolean addGrandTotal(){return Boolean.FALSE;}
 }

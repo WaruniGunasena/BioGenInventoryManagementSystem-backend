@@ -19,7 +19,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     Page<SalesOrder> findByIsDeleted(Boolean isDeleted, Pageable pageable);
     Page<SalesOrder> findByUser_IdAndIsDeletedFalse(Long userId, Pageable pageable);
     Long countByStatusAndIsDeletedFalse(SalesOrderStatus status);
-    List<SalesOrder> findBycustomer_id(Long customerId);
+    List<SalesOrder> findBycustomer_idAndIsDeletedFalseAndStatusNot(Long customerId, SalesOrderStatus status);
 
     @Query(value = """
     SELECT
@@ -86,5 +86,16 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
             "WHERE status = 'Approved' AND payment_status != 'PAID' AND is_deleted = 0",
             nativeQuery = true)
     long countPendingSales();
+
+    // 1. Approved Today's Sales
+    @Query("SELECT SUM(so.grandTotal - COALESCE(so.additionalDiscount, 0) + COALESCE(so.courierCharges, 0) - COALESCE(so.returnCredits, 0)) " +
+            "FROM SalesOrder so " +
+            "WHERE so.status = com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus.Approved " +
+            "AND so.isDeleted = false " +
+            "AND so.approvedAt BETWEEN :start AND :end")
+    BigDecimal sumApprovedSalesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // 2. Count for Dashboard widgets
+    long countByStatusAndIsDeletedFalseAndApprovedAtBetween(SalesOrderStatus status, LocalDateTime start, LocalDateTime end);
 
 }

@@ -18,6 +18,8 @@ import java.util.Map;
 public class DashboardResponseDTO {
     // Summary Cards
     private long pendingOrdersCount;
+    private BigDecimal todaySales;
+    private BigDecimal monthlySales;
     private BigDecimal totalOutstandingBalance;
     private long lowStockCount;
     private long upcomingExpiriesCount;
