@@ -1,7 +1,6 @@
 package com.biogenholdings.InventoryMgtSystem.dtos;
 
 import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
-import com.biogenholdings.InventoryMgtSystem.models.SalesCommissionSummary;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Data;
