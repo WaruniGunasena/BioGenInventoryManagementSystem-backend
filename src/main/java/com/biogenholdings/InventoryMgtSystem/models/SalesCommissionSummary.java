@@ -28,8 +28,6 @@ public class SalesCommissionSummary {
 
     private Long salesRepId;
 
-    private Long customerId;
-
     private String invoiceNumber;
 
     private LocalDateTime invoiceDate;
@@ -45,4 +43,8 @@ public class SalesCommissionSummary {
 
     @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL)
     private List<SalesCommissionItem> items;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
 }

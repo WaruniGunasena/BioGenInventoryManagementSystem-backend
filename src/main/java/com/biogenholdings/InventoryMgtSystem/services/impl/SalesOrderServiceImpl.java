@@ -382,7 +382,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .salesOrderId(order.getId().toString())
                 .invoiceNumber(order.getInvoiceNumber())
                 .salesRepId(order.getUser().getId())
-                .customerId(order.getCustomer().getId())
+                .customer(order.getCustomer())
                 .invoiceDate(order.getInvoiceDate().atStartOfDay()) // Converting LocalDate to LocalDateTime
                 .CommissionableAmount(BigDecimal.ZERO)
                 .ReturnCommission(BigDecimal.ZERO)
