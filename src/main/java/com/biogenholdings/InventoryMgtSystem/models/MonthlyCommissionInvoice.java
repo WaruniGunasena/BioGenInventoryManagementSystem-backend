@@ -23,15 +23,17 @@ public class MonthlyCommissionInvoice {
     private Long id;
 
     @Column(name = "commission_invoice_number")
-    private String commissionInvoiceNumber; // e.g., STMT-2026-04-REP001
+    private String commissionInvoiceNumber;
 
-    private Long salesRepId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sales_rep_id")
+    private User salesRep;
 
-    private String monthYear; // "2026-04"
+    private String monthYear;
 
     private BigDecimal MonthlyCommission;
 
-    private String payoutStatus; // UNPAID, PAID, PROCESSING
+    private String payoutStatus;
 
     private LocalDateTime generatedDate;
 

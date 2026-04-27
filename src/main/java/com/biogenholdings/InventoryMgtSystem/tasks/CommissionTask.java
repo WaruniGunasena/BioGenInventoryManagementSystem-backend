@@ -25,31 +25,25 @@ public class CommissionTask {
     private final MonthlyCommissionInvoiceRepository invoiceRepository;
     private final UserRepository userRepository;
 
-    /**
-     * Executes at 00:00:00 (Midnight) on the Last (L) day of every month.
-     * Processes every active Sales Rep and generates their consolidated invoice.
-     */
-    @Scheduled(cron = "0 23 11 25 * ?")
+    @Scheduled(cron = "0 0 0 L * ?")
     @Transactional
     public void generateMonthlyInvoices() {
-        // Formats current month as "2026-04" to match your DB search patterns
+
         String monthYear = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
 
-        // Fetch only active, non-deleted Sales Representatives
         List<User> salesReps = userRepository.findByRoleAndIsDeletedFalse(UserRole.SALES_REP);
 
         for (User rep : salesReps) {
-            // Calculates the sum of 'total_commission' for the rep in the specified month
+
             BigDecimal monthlyTotal = summaryRepository.getMonthlyTotalForRep(rep.getId(), monthYear);
 
-            // Only generate an invoice if they actually earned something
             if (monthlyTotal != null && monthlyTotal.compareTo(BigDecimal.ZERO) > 0) {
 
                 MonthlyCommissionInvoice invoice = MonthlyCommissionInvoice.builder()
-                        .commissionInvoiceNumber("STMT-" + monthYear + "-REP" + rep.getId())
-                        .salesRepId(rep.getId())
+                        .commissionInvoiceNumber("BHG-" + monthYear + "-REP" + rep.getId())
+                        .salesRep(rep)
                         .monthYear(monthYear)
-                        .MonthlyCommission(monthlyTotal) // Matches your summary logic
+                        .MonthlyCommission(monthlyTotal)
                         .payoutStatus("UNPAID")
                         .generatedDate(LocalDateTime.now())
                         .build();
