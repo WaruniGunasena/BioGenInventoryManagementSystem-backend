@@ -21,7 +21,6 @@ public class PdfGeneratorUtility {
 
         Document document = new Document(pageSize, 30, 30, 30, 30);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-
         try {
             PdfWriter.getInstance(document, out);
             document.open();
