@@ -19,7 +19,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     Page<SalesOrder> findByIsDeleted(Boolean isDeleted, Pageable pageable);
     Page<SalesOrder> findByUser_IdAndIsDeletedFalse(Long userId, Pageable pageable);
     Long countByStatusAndIsDeletedFalse(SalesOrderStatus status);
-    List<SalesOrder> findBycustomer_id(Long customerId);
+    List<SalesOrder> findBycustomer_idAndIsDeletedFalseAndStatusNot(Long customerId, SalesOrderStatus status);
 
     @Query(value = """
     SELECT
@@ -67,24 +67,53 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     long countSalesWithPayments(@Param("startDate") LocalDateTime startDate,
                                 @Param("endDate") LocalDateTime endDate);
 
-    @Query(value = """
-    SELECT COALESCE(SUM(so.grand_total - COALESCE(p.total_paid, 0)), 0)
-    FROM sales_orders so
-    LEFT JOIN (
-        SELECT sales_order_id, SUM(amount) AS total_paid
-        FROM sales_order_payments
-        WHERE is_deleted = 0
-        GROUP BY sales_order_id
-    ) p ON so.id = p.sales_order_id
-    WHERE so.status = 'Approved'
-      AND so.payment_status != 'PAID'
-      AND so.is_deleted = 0
-    """, nativeQuery = true)
+    @Query(value =
+            "SELECT COALESCE(SUM(" +
+                    "    /* 1. CALCULATE TRUE INVOICE TOTAL */ " +
+                    "    (COALESCE(so.grand_total, 0) - " +
+                    "    CASE " +
+                    "        WHEN so.additional_discount_type = 'PERCENTAGE' " +
+                    "        THEN (COALESCE(so.grand_total, 0) * COALESCE(so.additional_discount, 0) / 100) " +
+                    "        ELSE COALESCE(so.additional_discount, 0) " +
+                    "    END " +
+                    "    + COALESCE(so.courier_charges, 0) " +
+                    "    - COALESCE(so.return_credits, 0)) " +
+                    "    /* 2. SUBTRACT PAYMENTS RECEIVED */ " +
+                    "    - COALESCE(p.total_paid, 0) " +
+
+                    "), 0) AS total_receivable " +
+
+                    "FROM sales_orders so " +
+
+                    "/* Subquery for Payments */ " +
+                    "LEFT JOIN ( " +
+                    "    SELECT sales_order_id, SUM(COALESCE(amount, 0)) AS total_paid " +
+                    "    FROM sales_order_payments " +
+                    "    WHERE is_deleted = false " +
+                    "    GROUP BY sales_order_id " +
+                    ") p ON so.id = p.sales_order_id " +
+
+                    "WHERE so.status = 'APPROVED' " +
+                    "AND so.is_deleted = false " +
+                    "AND so.payment_status != 'PAID'",
+            nativeQuery = true
+    )
     BigDecimal calculateTotalAccountsReceivable();
 
     @Query(value = "SELECT COUNT(*) FROM sales_orders " +
             "WHERE status = 'Approved' AND payment_status != 'PAID' AND is_deleted = 0",
             nativeQuery = true)
     long countPendingSales();
+
+    // 1. Approved Today's Sales
+    @Query("SELECT SUM(so.grandTotal - COALESCE(so.additionalDiscount, 0) + COALESCE(so.courierCharges, 0) - COALESCE(so.returnCredits, 0)) " +
+            "FROM SalesOrder so " +
+            "WHERE so.status = com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus.Approved " +
+            "AND so.isDeleted = false " +
+            "AND so.approvedAt BETWEEN :start AND :end")
+    BigDecimal sumApprovedSalesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // 2. Count for Dashboard widgets
+    long countByStatusAndIsDeletedFalseAndApprovedAtBetween(SalesOrderStatus status, LocalDateTime start, LocalDateTime end);
 
 }
