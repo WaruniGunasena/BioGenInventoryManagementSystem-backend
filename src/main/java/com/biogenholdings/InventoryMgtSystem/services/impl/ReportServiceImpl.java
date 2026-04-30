@@ -10,8 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -46,15 +48,14 @@ public class ReportServiceImpl implements IReportService {
         String dateLabel = params.get("date"); // For daily reports using 'date' param
 
         String dateDisplay;
-        if (startDate != null && endDate != null) {
-            dateDisplay = "Period: " + startDate + " to " + endDate;
-        } else if (startDate != null) {
+        if(Objects.equals(startDate, endDate) && startDate != null){
             dateDisplay = "Date: " + startDate;
-        } else if (dateLabel != null) {
-            dateDisplay = "Date: " + dateLabel;
-        } else {
-            dateDisplay = "Date: " + java.time.LocalDate.now().toString(); // Fallback to Today
-        }
+        } else if (startDate != null && endDate != null) {
+            dateDisplay = "Period: " + startDate + " to " + endDate;
+        } else // Fallback to Today
+            if (startDate != null) {
+            dateDisplay = "Date: " + startDate;
+        } else dateDisplay = "Date: " + Objects.requireNonNullElseGet(dateLabel, () -> LocalDate.now().toString());
 
         String extraHeaderInfo = "";
         if (reportType.equalsIgnoreCase("INDIVIDUAL_CUSTOMER")) {

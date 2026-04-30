@@ -8,6 +8,7 @@ import com.lowagie.text.pdf.*;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.List;
 
@@ -20,7 +21,6 @@ public class PdfGeneratorUtility {
 
         Document document = new Document(pageSize, 30, 30, 30, 30);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-
         try {
             PdfWriter.getInstance(document, out);
             document.open();
@@ -74,11 +74,26 @@ public class PdfGeneratorUtility {
                 for (Map<String, Object> row : data) {
                     for (String key : keys) {
                         Object value = row.get(key);
-                        String cellText = (value != null) ? String.valueOf(value) : "";
+                        String cellText = "";
 
-                        // Summation Logic
-                        if (value != null && (key.toLowerCase().contains("revenue") || key.toLowerCase().contains("amount"))) {
+                        // NEW: Formatting Logic for Decimals and Scientific Notation
+                        if (value instanceof BigDecimal) {
+                            // Forces 2 decimal places and removes scientific notation like 0E-8
+                            cellText = ((BigDecimal) value).setScale(2, RoundingMode.HALF_UP).toPlainString();
+                        } else if (value instanceof Double || value instanceof Float) {
+                            cellText = String.format("%.2f", value);
+                        } else {
+                            cellText = (value != null) ? String.valueOf(value) : "";
+                        }
+
+                        // Summation Logic (Uses the cleaned cellText)
+                        if (value != null && (key.toLowerCase().contains("revenue") ||
+                                key.toLowerCase().contains("amount") ||
+                                key.toLowerCase().contains("balance") ||
+                                key.toLowerCase().contains("paid"))) {
                             try {
+                                // Ensure we use the raw object for precision during summation,
+                                // but if it's null-safe to use the formatted cellText:
                                 BigDecimal numericValue = new BigDecimal(cellText);
                                 columnTotals.put(key, columnTotals.getOrDefault(key, BigDecimal.ZERO).add(numericValue));
                             } catch (NumberFormatException e) {
@@ -89,8 +104,12 @@ public class PdfGeneratorUtility {
                         PdfPCell dataCell = new PdfPCell(new Phrase(cellText, dataFont));
                         dataCell.setPadding(4);
 
-                        // Right-align numbers
-                        if (key.toLowerCase().contains("revenue") || key.toLowerCase().contains("amount") || key.toLowerCase().contains("qty")) {
+                        // Right-align numbers (Added 'balance' and 'paid' to catch your new columns)
+                        if (key.toLowerCase().contains("revenue") ||
+                                key.toLowerCase().contains("amount") ||
+                                key.toLowerCase().contains("qty") ||
+                                key.toLowerCase().contains("balance") ||
+                                key.toLowerCase().contains("paid")) {
                             dataCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
                         }
 

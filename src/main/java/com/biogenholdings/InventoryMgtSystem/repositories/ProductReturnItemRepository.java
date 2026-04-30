@@ -18,6 +18,8 @@ public interface ProductReturnItemRepository extends JpaRepository<ProductReturn
             Integer minQty
     );
 
+    List<ProductReturnItem> findTopByProductReturn_Customer_IdAndProduct_IdOrderByProductReturn_ReturnDateDesc(Long customerId, Long itemId);
+
     @Query("SELECT SUM(pri.quantity) FROM ProductReturnItem pri " +
             "WHERE pri.product.id = :productId " +
             "AND pri.productReturn.salesOrder.id = :orderId " +

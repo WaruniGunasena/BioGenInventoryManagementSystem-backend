@@ -34,7 +34,7 @@ public class CustomerWiseReportStrategy implements ReportStrategy {
 
     @Override
     public List<String> getColumnOrder() {
-        return List.of("Customer_Name", "Total_Revenue", "Total_Invoices");
+        return List.of("Customer_Name","Address", "Total_Invoices", "Total_Revenue");
     }
 
 }

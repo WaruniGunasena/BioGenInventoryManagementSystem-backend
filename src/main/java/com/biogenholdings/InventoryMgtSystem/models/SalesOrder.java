@@ -92,6 +92,6 @@ public class SalesOrder {
 
     private Boolean isDelivered;
 
-
+    private LocalDate overDueOn;
 
 }

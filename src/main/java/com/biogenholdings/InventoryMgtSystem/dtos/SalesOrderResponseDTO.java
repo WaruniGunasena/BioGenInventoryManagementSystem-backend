@@ -53,4 +53,7 @@ public class SalesOrderResponseDTO {
     private BigDecimal returnCredits;
 
     private Boolean isDelivered;
+
+    private LocalDate overDueOn;
+    private Long daysRemaining;
 }

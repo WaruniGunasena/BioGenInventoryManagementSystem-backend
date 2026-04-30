@@ -35,7 +35,7 @@ public class DashboardServiceImpl implements DashboardService {
 
         // 1. Fetch Summary Data
         long pendingOrders = salesOrderRepository.countByStatus(SalesOrderStatus.Pending);
-        BigDecimal outstanding = salesOrderRepository.getTotalOutstandingBalance();
+        BigDecimal outstanding = salesOrderRepository.calculateTotalAccountsReceivable();
         if (outstanding == null) outstanding = BigDecimal.ZERO;
 
         // 2. Fetch Stock & Expiry Data
