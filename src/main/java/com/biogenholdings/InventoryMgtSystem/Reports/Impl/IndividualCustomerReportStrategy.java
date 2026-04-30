@@ -14,7 +14,7 @@ public class IndividualCustomerReportStrategy implements ReportStrategy {
     private final ReportRepository reportRepo;
 
     @Override public String getReportIdentifier() { return "INDIVIDUAL_CUSTOMER"; }
-    @Override public String getReportName() { return "Customer Account Statement"; }
+    @Override public String getReportName() { return "Customer Sales Credit Report"; }
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
@@ -48,6 +48,6 @@ public class IndividualCustomerReportStrategy implements ReportStrategy {
 
     @Override
     public List<String> getColumnOrder() {
-        return List.of("Invoice_Number", "Invoice_Date", "Status","remaining_days", "Amount");
+        return List.of("Invoice_Date","Invoice_Number", "Amount","Paid_Amount", "Balance","Age_Days");
     }
 }

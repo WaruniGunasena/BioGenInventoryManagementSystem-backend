@@ -24,6 +24,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Year;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -74,6 +75,23 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         User userRole = userRepository.findById(request.getUserId())
                 .orElseThrow(()-> new RuntimeException("Sales Rep not found"));
+
+        LocalDate invoiceDate = request.getDate();
+        LocalDate overDueOn = null;
+
+        String creditPeriodStr = customer.getCreditPeriod();
+
+        // Check if credit period exists and is not "CASH" (case-insensitive)
+        if (creditPeriodStr != null && !"CASH".equalsIgnoreCase(creditPeriodStr.trim())) {
+            try {
+                // Extract numbers only (handles "30 days" or just "30")
+                int days = Integer.parseInt(creditPeriodStr.replaceAll("[^0-9]", ""));
+                overDueOn = invoiceDate.plusDays(days);
+            } catch (NumberFormatException e) {
+                // If parsing fails, treat as cash/null or log warning
+                throw new RuntimeException("Error",e);
+            }
+        }
         SalesOrder order = SalesOrder.builder()
                 .invoiceNumber(invoiceNumber)
                 .customer(customer)
@@ -88,6 +106,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .additionalDiscountType(request.getAdditionalDiscountType())
                 .returnCredits(request.getReturnCredits())
                 .isDelivered(false)
+                .overDueOn(overDueOn)
                 .build();
 
         List<SalesOrderItem> items = new ArrayList<>();
@@ -156,7 +175,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         .build())
                 .collect(Collectors.toList());
 
-        customer.setDueBalance(customer.getDueBalance().add(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType())));
+        customer.setDueBalance(customer.getDueBalance().add(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),BigDecimal.ZERO,order.getAdditionalDiscountType())));
 
         // RESET Available Return Credit if it was applied as a cash discount in this order
         if (request.getReturnCredits().compareTo(BigDecimal.ZERO) > 0) {
@@ -225,6 +244,15 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 stock.setTotalQuantity(
                         stock.getTotalQuantity() + item.getQuantity()
                 );
+                customer.setDueBalance(customer.getDueBalance().subtract(calculateNetTotal(salesOrder.getGrandTotal(), salesOrder.getCourierCharges(), salesOrder.getAdditionalDiscount(), salesOrder.getReturnCredits(), salesOrder.getAdditionalDiscountType())));
+                if (salesOrder.getReturnCredits().compareTo(BigDecimal.ZERO) > 0) {
+                    customer.setAvailableReturnCredit(customer.getAvailableReturnCredit().add(salesOrder.getReturnCredits()));
+                }
+
+                // 4. Reverse Reissue logic
+                reverseReissueLogic(salesOrder);
+
+                customerRepository.save(customer);
             }
 
             productStockRepository.save(stock);
@@ -236,11 +264,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         salesOrder.setIsDeleted(true);
         salesOrder.setDeletedBy(user);
         salesOrder.setDeletedAt(LocalDateTime.now());
-        if(salesOrder.getStatus() != SalesOrderStatus.Rejected) {
-            customer.setDueBalance(customer.getDueBalance().subtract(calculateNetTotal(salesOrder.getGrandTotal(), salesOrder.getCourierCharges(), salesOrder.getAdditionalDiscount(), salesOrder.getReturnCredits(), salesOrder.getAdditionalDiscountType())));
-            customerRepository.save(customer);
-        }
-
         salesOrderRepository.save(salesOrder);
 
         return Response.builder()
@@ -375,12 +398,32 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         .orElseThrow(() -> new NotFoundException("Customer not found"));
 
                 customer.setDueBalance(customer.getDueBalance().subtract(calculateNetTotal(salesOrder.getGrandTotal(),salesOrder.getCourierCharges(),salesOrder.getAdditionalDiscount(),salesOrder.getReturnCredits(),salesOrder.getAdditionalDiscountType())));
+
+                // 3. Restore Return Credits
+                if (salesOrder.getReturnCredits().compareTo(BigDecimal.ZERO) > 0) {
+                    customer.setAvailableReturnCredit(customer.getAvailableReturnCredit().add(salesOrder.getReturnCredits()));
+                }
+
+                // 4. Reverse Reissue
+                reverseReissueLogic(salesOrder);
                 customerRepository.save(customer);
             }
         }
 
         if (salesOrderStatus == SalesOrderStatus.Approved) {
-            salesOrder.setPaymentStatus("PENDING");
+            BigDecimal netTotal = calculateNetTotal(
+                    salesOrder.getGrandTotal(),
+                    salesOrder.getCourierCharges(),
+                    salesOrder.getAdditionalDiscount(),
+                    salesOrder.getReturnCredits(),
+                    salesOrder.getAdditionalDiscountType()
+            );
+
+            if (netTotal.compareTo(BigDecimal.ZERO) == 0) {
+                salesOrder.setPaymentStatus("PAID"); // fully covered by credits
+            } else {
+                salesOrder.setPaymentStatus("PENDING");
+            }
         }
 
         salesOrder.setStatus(salesOrderStatus);
@@ -445,6 +488,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
             if (dueBalance.compareTo(BigDecimal.ZERO) == 0) {
                 order.setPaymentStatus("PAID");
+                order.setOverDueOn(null);
             } else if (dueBalance.compareTo(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType())) < 0) {
                 order.setPaymentStatus("PARTIAL");
             } else {
@@ -562,6 +606,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                 .plusDays(Long.parseLong(order.getCreditTerm()))
                                 .toString()
                 )
+                .overDueOn(order.getOverDueOn())
+                .daysRemaining(
+                        order.getOverDueOn() == null ? 0 :
+                                ChronoUnit.DAYS.between(LocalDate.now().atStartOfDay().toLocalDate(), order.getOverDueOn().atStartOfDay().toLocalDate()))
 
                 .customer(CustomerDTO.builder()
                         .id(order.getCustomer().getId())
@@ -661,6 +709,25 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
 
             productReturnItemRepository.save(returnItem);
+        }
+    }
+    private void reverseReissueLogic(SalesOrder salesOrder) {
+        for (SalesOrderItem item : salesOrder.getItems()) {
+            if (Boolean.TRUE.equals(item.getIsReissue())) {
+                // Find the most recently updated return items to "refill" them
+                List<ProductReturnItem> returnItems = productReturnItemRepository
+                        .findTopByProductReturn_Customer_IdAndProduct_IdOrderByProductReturn_ReturnDateDesc(
+                                salesOrder.getCustomer().getId(),
+                                item.getProduct().getId()
+                        );
+
+                if (!returnItems.isEmpty()) {
+                    ProductReturnItem returnItem = returnItems.get(0);
+                    returnItem.setQuantityRemainingToReissue(returnItem.getQuantityRemainingToReissue() + item.getQuantity());
+                    returnItem.setReissued(false);
+                    productReturnItemRepository.save(returnItem);
+                }
+            }
         }
     }
 

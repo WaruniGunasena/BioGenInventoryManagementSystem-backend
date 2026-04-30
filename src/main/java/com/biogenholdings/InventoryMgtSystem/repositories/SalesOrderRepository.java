@@ -67,19 +67,37 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     long countSalesWithPayments(@Param("startDate") LocalDateTime startDate,
                                 @Param("endDate") LocalDateTime endDate);
 
-    @Query(value = """
-    SELECT COALESCE(SUM(so.grand_total - COALESCE(p.total_paid, 0)), 0)
-    FROM sales_orders so
-    LEFT JOIN (
-        SELECT sales_order_id, SUM(amount) AS total_paid
-        FROM sales_order_payments
-        WHERE is_deleted = 0
-        GROUP BY sales_order_id
-    ) p ON so.id = p.sales_order_id
-    WHERE so.status = 'Approved'
-      AND so.payment_status != 'PAID'
-      AND so.is_deleted = 0
-    """, nativeQuery = true)
+    @Query(value =
+            "SELECT COALESCE(SUM(" +
+                    "    /* 1. CALCULATE TRUE INVOICE TOTAL */ " +
+                    "    (COALESCE(so.grand_total, 0) - " +
+                    "    CASE " +
+                    "        WHEN so.additional_discount_type = 'PERCENTAGE' " +
+                    "        THEN (COALESCE(so.grand_total, 0) * COALESCE(so.additional_discount, 0) / 100) " +
+                    "        ELSE COALESCE(so.additional_discount, 0) " +
+                    "    END " +
+                    "    + COALESCE(so.courier_charges, 0) " +
+                    "    - COALESCE(so.return_credits, 0)) " +
+                    "    /* 2. SUBTRACT PAYMENTS RECEIVED */ " +
+                    "    - COALESCE(p.total_paid, 0) " +
+
+                    "), 0) AS total_receivable " +
+
+                    "FROM sales_orders so " +
+
+                    "/* Subquery for Payments */ " +
+                    "LEFT JOIN ( " +
+                    "    SELECT sales_order_id, SUM(COALESCE(amount, 0)) AS total_paid " +
+                    "    FROM sales_order_payments " +
+                    "    WHERE is_deleted = false " +
+                    "    GROUP BY sales_order_id " +
+                    ") p ON so.id = p.sales_order_id " +
+
+                    "WHERE so.status = 'APPROVED' " +
+                    "AND so.is_deleted = false " +
+                    "AND so.payment_status != 'PAID'",
+            nativeQuery = true
+    )
     BigDecimal calculateTotalAccountsReceivable();
 
     @Query(value = "SELECT COUNT(*) FROM sales_orders " +

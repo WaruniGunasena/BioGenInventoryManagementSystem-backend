@@ -18,10 +18,32 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     // 1.1 & 3.1: Daily Business/Sales Summary
     @Query(value = "SELECT " +
             // 1. Order & Sales Stats
+            // 1. Total Count (Stays simple)
             "(SELECT COUNT(id) FROM sales_orders WHERE invoice_date = :date AND is_deleted = false) as totalOrders, " +
-            "(SELECT COALESCE(SUM(grand_total), 0) FROM sales_orders WHERE invoice_date = :date AND is_deleted = false) as grossSales, " +
-            "(SELECT COALESCE(SUM(grand_total), 0) FROM sales_orders WHERE invoice_date = :date AND status = 'Approved' AND is_deleted = false) as approvedSales, " +
 
+// 2. Gross Sales (The Total value of all items sold today before any header adjustments)
+            "(SELECT COALESCE(SUM(" +
+            "    COALESCE(grand_total, 0) - " +
+            "    CASE " +
+            "        WHEN additional_discount_type = 'PERCENTAGE' " +
+            "        THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
+            "        ELSE COALESCE(additional_discount, 0) " +
+            "    END " +
+            "    + COALESCE(courier_charges, 0) " +
+            "    - COALESCE(return_credits, 0)" +
+            "), 0) FROM sales_orders WHERE invoice_date = :date AND is_deleted = false) as  grossSales, " +
+
+// 3. Approved Sales (The TRUE money coming into the business)
+            "(SELECT COALESCE(SUM(" +
+            "    COALESCE(grand_total, 0) - " +
+            "    CASE " +
+            "        WHEN additional_discount_type = 'PERCENTAGE' " +
+            "        THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
+            "        ELSE COALESCE(additional_discount, 0) " +
+            "    END " +
+            "    + COALESCE(courier_charges, 0) " +
+            "    - COALESCE(return_credits, 0)" +
+            "), 0) FROM sales_orders WHERE invoice_date = :date AND status = 'Approved' AND is_deleted = false) as approvedSales, "+
             // 2. Income Breakdown (From SalesOrderPayment)
             "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments WHERE CAST(created_at AS DATE) = :date AND payment_method = 'CASH' AND is_deleted = false) as cashIncome, " +
             "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments WHERE CAST(created_at AS DATE) = :date AND payment_method = 'CHEQUE' AND is_deleted = false) as chequeIncome, " +
@@ -124,22 +146,31 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getDashboardTopSelling();
 
     // 3.3 Invoice-wise Report (Lists every individual Invoice)
-    @Query(value = "SELECT "+
-            " so.status as Status, "+
-            " so.grand_total as Amount,"+
-            "c.name as Customer_Name, "+
-            "so.invoice_date as Date,"+
-            "so.invoice_number as Invoice_Number "+
+    @Query(value = "SELECT " +
+            "so.invoice_number as Invoice_Number, " +
+            "so.invoice_date as Date, " +
+            "c.name as Customer_Name, " +
+            "so.status as Status, " +
+            "/* Financial Calculation: (GrandTotal - Discount) + Courier - ReturnCredits */ " +
+            "(COALESCE(so.grand_total, 0) - " +
+            " CASE " +
+            "   WHEN so.additional_discount_type = 'PERCENTAGE' " +
+            "   THEN (COALESCE(so.grand_total, 0) * COALESCE(so.additional_discount, 0) / 100) " +
+            "   ELSE COALESCE(so.additional_discount, 0) " +
+            " END " +
+            " + COALESCE(so.courier_charges, 0) " +
+            " - COALESCE(so.return_credits, 0)) as Amount " +
             "FROM sales_orders so " +
             "JOIN customers c ON so.customer_id = c.id " +
-            "WHERE UPPER(so.status) = 'APPROVED' AND so.is_deleted = false " +
+            "WHERE UPPER(so.status) = 'APPROVED' " +
+            "AND so.is_deleted = false " +
             "AND so.invoice_date BETWEEN :start AND :end " +
             "ORDER BY so.invoice_number ASC", nativeQuery = true)
     List<Map<String, Object>> getInvoiceWiseSales(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
     // 3.4 Product-wise Sales (Lists every Product sold)
     @Query(value = "SELECT p.name as Product_Name, p.item_code as Item_Code, " +
-            "SUM(soi.quantity) as Total_Qty, SUM(soi.total_amount) as Total_Amount " +
+            "SUM(soi.quantity - soi.return_qty) as Total_Qty, SUM(soi.total_amount - (soi.return_qty * soi.selling_price)) as Total_Amount " +
             "FROM sales_order_items soi " +
             "JOIN products p ON soi.product_id = p.id " +
             "JOIN sales_orders so ON soi.sales_order_id = so.id " +
@@ -150,23 +181,51 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getProductWiseSales(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
     // 3.5 Customer-wise Sales (Lists every Customer who bought)
-    @Query(value = "SELECT c.name as Customer_Name, COUNT(so.id) as Total_Invoices, " +
-            "SUM(so.grand_total) as Total_Revenue " +
+    @Query(value = "SELECT " +
+            "c.name as Customer_Name, " +
+            "c.address as Address, " +
+            "COUNT(so.id) as Total_Invoices, " +
+            "SUM( " +
+            "  COALESCE(so.grand_total, 0) - " +
+            "  CASE " +
+            "    WHEN so.additional_discount_type = 'PERCENTAGE' " +
+            "    THEN (COALESCE(so.grand_total, 0) * COALESCE(so.additional_discount, 0) / 100) " +
+            "    ELSE COALESCE(so.additional_discount, 0) " +
+            "  END " +
+            "  + COALESCE(so.courier_charges, 0) " +
+            "  - COALESCE(so.return_credits, 0) " +
+            ") as Total_Revenue " +
             "FROM sales_orders so " +
             "JOIN customers c ON so.customer_id = c.id " +
-            "WHERE UPPER(so.status) = 'APPROVED' AND so.is_deleted = false " +
+            "WHERE UPPER(so.status) = 'APPROVED' " +
+            "AND so.is_deleted = false " +
             "AND so.invoice_date BETWEEN :start AND :end " +
             "GROUP BY c.id, c.name " +
-            "ORDER BY c.name ASC", nativeQuery = true)
+            "ORDER BY Total_Revenue DESC", nativeQuery = true)
     List<Map<String, Object>> getCustomerWiseSales(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
     // 3.6 Sales Summary (Financial totals)
     // Note: NetSales logic usually subtracts discounts from Gross.
     @Query(value = "SELECT " +
-            "COUNT(CASE WHEN UPPER(status) = 'APPROVED' THEN 1 END) as Approved_Invoices, " +
-            "COUNT(CASE WHEN UPPER(status) = 'PENDING' THEN 1 END) as Pending_Invoices, " +
-            "COALESCE(SUM(grand_total), 0) as Gross_Sales, " + // Sum of everything (Approved + Pending)
-            "COALESCE(SUM(CASE WHEN UPPER(status) = 'APPROVED' THEN grand_total ELSE 0 END), 0) as Net_Sales " + // Only Approved
+            "COUNT(CASE WHEN UPPER(status) IN ('APPROVED','PENDING') THEN 1 END) AS Total_Invoices, " +
+            "COALESCE(SUM( " +
+            "   grand_total - " +
+            "   (CASE " +
+            "       WHEN additional_discount_type = 'PERCENTAGE' THEN (grand_total * additional_discount / 100) " +
+            "       ELSE additional_discount " +
+            "   END) + courier_charges - return_credits " +
+            "), 0) as Gross_Sales, " +
+
+            "COALESCE(SUM( " +
+            "   CASE WHEN UPPER(status) = 'APPROVED' THEN " +
+            "       (grand_total - " +
+            "           (CASE " +
+            "               WHEN additional_discount_type = 'PERCENTAGE' THEN (grand_total * additional_discount / 100) " +
+            "               ELSE additional_discount " +
+            "           END) + courier_charges - return_credits " +
+            "       ) " +
+            "   ELSE 0 END " +
+            "), 0) as Net_Sales " + // Only Approved
             "FROM sales_orders " +
             "WHERE is_deleted = false " +
             "AND status IN ('Approved', 'Pending', 'APPROVED', 'PENDING') " +
@@ -338,35 +397,120 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     "WHERE c.id = :cId GROUP BY c.id, c.name, c.address, c.credit_period, c.due_balance;", nativeQuery = true)
     Map<String, Object> getCustomerDetailHeader(@Param("cId") Long customerId);
 
-    // Fetch All Invoices for that Customer
+//    @Query(value =
+//            "SELECT " +
+//                    "   s.invoice_number AS Invoice_Number, " +
+//                    "   s.invoice_date AS Invoice_Date, " +
+//                    "   /* Standardized Formula: (GrandTotal - Discount) + Courier - Returns */ " +
+//                    "   (COALESCE(s.grand_total, 0) - " +
+//                    "    CASE " +
+//                    "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+//                    "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
+//                    "       ELSE COALESCE(s.additional_discount, 0) " +
+//                    "    END " +
+//                    "    + COALESCE(s.courier_charges, 0) " +
+//                    "    - COALESCE(s.return_credits, 0)) AS Amount, " +
+//                    "   s.status AS Status, " +
+//                    "   s.payment_status AS Payment_Status, " +
+//                    "   CASE " +
+//                    "       WHEN UPPER(s.payment_status) = 'PAID' THEN 'SETTLED' " +
+//                    "       WHEN UPPER(TRIM(c.credit_period)) = 'CASH' THEN 'CASH SALE' " +
+//                    "       /* Check if credit_period is a valid number */ " +
+//                    "       WHEN c.credit_period REGEXP '^[0-9]+$' THEN " +
+//                    "           CASE " +
+//                    "               WHEN DATEDIFF(CURDATE(), s.invoice_date) > CAST(c.credit_period AS SIGNED) " +
+//                    "               THEN 'OVERDUE' " +
+//                    "               ELSE CONCAT(CAST(c.credit_period AS SIGNED) - DATEDIFF(CURDATE(), s.invoice_date), ' DAYS LEFT') " +
+//                    "           END " +
+//                    "       ELSE 'N/A' " +
+//                    "   END AS Aging_Status " +
+//                    "FROM sales_orders s " +
+//                    "INNER JOIN customers c ON s.customer_id = c.id " +
+//                    "WHERE s.customer_id = :cId " +
+//                    "AND s.is_deleted = false " +
+//                    "ORDER BY s.invoice_date DESC",
+//            nativeQuery = true
+//    )
+//    List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerId);
+@Query(value =
+        "SELECT " +
+                "   s.invoice_date AS Invoice_Date, " +
+                "   s.invoice_number AS Invoice_Number, " +
+                "   /* 1. NET INVOICE AMOUNT */ " +
+                "   (COALESCE(s.grand_total, 0) - " +
+                "    CASE " +
+                "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+                "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
+                "       ELSE COALESCE(s.additional_discount, 0) " +
+                "    END " +
+                "    + COALESCE(s.courier_charges, 0) " +
+                "    - COALESCE(s.return_credits, 0)) AS Amount, " +
+                "   /* 2. PAID AMOUNT (From Payments Table) */ " +
+                "   COALESCE(p.total_paid, 0) AS Paid_Amount, " +
+                "   /* 3. CALCULATE BALANCE (Amount - Paid_Amount) */ " +
+                "   ((COALESCE(s.grand_total, 0) - " +
+                "    CASE " +
+                "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+                "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
+                "       ELSE COALESCE(s.additional_discount, 0) " +
+                "    END " +
+                "    + COALESCE(s.courier_charges, 0) " +
+                "    - COALESCE(s.return_credits, 0)) - COALESCE(p.total_paid, 0)) AS Balance, " +
+                "   /* 4. AGE IN DAYS */ " +
+                "   CONCAT(DATEDIFF(CURDATE(), s.invoice_date), ' DAYS') AS Age_Days " +
+                "FROM sales_orders s " +
+                "INNER JOIN customers c ON s.customer_id = c.id " +
+                "/* This subquery sums up all payments for each invoice */ " +
+                "LEFT JOIN ( " +
+                "   SELECT sales_order_id, SUM(amount) AS total_paid " +
+                "   FROM sales_order_payments " +
+                "   WHERE is_deleted = false " +
+                "   GROUP BY sales_order_id " +
+                ") p ON s.id = p.sales_order_id " +
+                "WHERE s.customer_id = :cId " +
+                "AND s.is_deleted = false " +
+                "ORDER BY s.invoice_date DESC",
+        nativeQuery = true
+)
+List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerId);
+
     @Query(value =
             "SELECT " +
-                    "s.invoice_number, " +
-                    "s.invoice_date, " +
-                    "s.grand_total AS Amount, " +
-                    "s.status, " +
-                    "s.payment_status, " +
-
-                    "CASE " +
-                    "   WHEN s.payment_status = 'PAID' THEN 'PAID' " +
-                    "   WHEN TRIM(UPPER(c.credit_period)) = 'CASH' THEN 'PAID' " +
-
-                    "   WHEN s.payment_status IS NULL OR s.payment_status IN ('PENDING','PARTIAL') THEN " +
-                    "       CASE " +
-                    "           WHEN (CAST(c.credit_period AS SIGNED) - DATEDIFF(CURDATE(), s.invoice_date)) < 0 THEN 'OVERDUE' " +
-                    "           ELSE CONCAT((CAST(c.credit_period AS SIGNED) - DATEDIFF(CURDATE(), s.invoice_date)), ' DAYS LEFT') " +
-                    "       END " +
-
-                    "   ELSE '-' " +
-                    "END AS remaining_days " +
-
+                    "   c.name AS Customer_Name, " +
+                    "   s.invoice_number AS Invoice_Number, " +
+                    "   s.status AS Status, " +
+                    "   /* 1. Net Invoice Amount Calculation */ " +
+                    "   (COALESCE(s.grand_total, 0) - " +
+                    "    CASE " +
+                    "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+                    "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
+                    "       ELSE COALESCE(s.additional_discount, 0) " +
+                    "    END " +
+                    "    + COALESCE(s.courier_charges, 0) " +
+                    "    - COALESCE(s.return_credits, 0)) AS Amount, " +
+                    "   /* 2. Paid Amount for this specific invoice */ " +
+                    "   COALESCE(p.total_paid, 0) AS Paid_Amount, " +
+                    "   /* 3. Balance for this specific invoice */ " +
+                    "   ((COALESCE(s.grand_total, 0) - " +
+                    "    CASE " +
+                    "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+                    "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
+                    "       ELSE COALESCE(s.additional_discount, 0) " +
+                    "    END " +
+                    "    + COALESCE(s.courier_charges, 0) " +
+                    "    - COALESCE(s.return_credits, 0)) - COALESCE(p.total_paid, 0)) AS Balance, " +
+                    "   CONCAT(DATEDIFF(CURDATE(), s.invoice_date), ' DAYS') AS Age_Days " +
                     "FROM sales_orders s " +
                     "INNER JOIN customers c ON s.customer_id = c.id " +
-                    "WHERE s.customer_id = :cId " +
-                    "AND s.is_deleted = false " +
-                    "ORDER BY s.invoice_date DESC",
-
+                    "LEFT JOIN ( " +
+                    "   SELECT sales_order_id, SUM(amount) AS total_paid " +
+                    "   FROM sales_order_payments " +
+                    "   WHERE is_deleted = false " +
+                    "   GROUP BY sales_order_id " +
+                    ") p ON s.id = p.sales_order_id " +
+                    "WHERE s.is_deleted = false " +
+                    "ORDER BY s.invoice_number ASC",
             nativeQuery = true
     )
-    List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerId);
+    List<Map<String, Object>> getAllIndividualSalesByDate(@Param("date") LocalDate date);
 }

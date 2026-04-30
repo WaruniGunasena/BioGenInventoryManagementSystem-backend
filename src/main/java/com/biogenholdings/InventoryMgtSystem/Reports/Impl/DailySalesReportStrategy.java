@@ -11,20 +11,19 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class SalesReportStrategy implements ReportStrategy {
+public class DailySalesReportStrategy implements ReportStrategy {
     final private ReportRepository reportRepo;
 
-    @Override public String getReportIdentifier() { return "SALES_REPORT"; }
-    @Override public String getReportName() { return "Sales Activity Report"; }
+    @Override public String getReportIdentifier() { return "DAILY_SALES_REPORT"; }
+    @Override public String getReportName() { return "Daily Sales Activity Report"; }
 
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
         // 1. Handle Dates (Support for Daily/Monthly)
         LocalDate start = LocalDate.parse(params.get("startDate"));
-        LocalDate end = LocalDate.parse(params.get("endDate"));
 
-        Map<String, Object> summary = reportRepo.getSalesSummary(start, end);
+        Map<String, Object> summary = reportRepo.getSalesSummary(start, start);
         return List.of(summary); // Critical: wrap in List
     }
 
@@ -35,5 +34,10 @@ public class SalesReportStrategy implements ReportStrategy {
         int columnCount = data.getFirst().size();
 
         return columnCount > 6 ? "landscape" : "portrait";
+    }
+
+    @Override
+    public List<String> getColumnOrder() {
+        return List.of("Gross_sales","Net_sales","Total_Invoices");
     }
 }
