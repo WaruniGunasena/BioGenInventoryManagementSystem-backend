@@ -58,4 +58,15 @@ public class CommissionController {
         return ResponseEntity.ok(commissionService.getCommissionInvoiceDetails(invoiceNumber));
     }
 
+    @GetMapping("/my-reversals")
+    public ResponseEntity<Response> getMyCommissionReversals(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+
+        Long currentUserId = userService.getCurrentLoggedInUser().getId();
+
+        Response response = commissionService.getMyCommissionReversals(currentUserId, page, size);
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
+
 }

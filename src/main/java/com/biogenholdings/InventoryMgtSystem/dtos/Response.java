@@ -26,6 +26,9 @@ public class Response {
     private Integer totalPages;
     private Long totalElements;
     private BigDecimal totalAmountCommissionSalesRep;
+    private BigDecimal totalAmountCommissionReversal;
+    private BigDecimal netPayout;
+    private List<CommissionReversalDTO> reversalData;
 
     private UserDTO user;
     private List<UserDTO> users;

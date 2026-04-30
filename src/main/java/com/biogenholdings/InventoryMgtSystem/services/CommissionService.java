@@ -14,4 +14,6 @@ public interface CommissionService {
     Response getCommissionInvoiceDetails(String invoiceNumber);
 
     Response getMyCommissionHistory(Long userId, int page, int size);
+
+    Response getMyCommissionReversals(Long userId, int page, int size);
 }

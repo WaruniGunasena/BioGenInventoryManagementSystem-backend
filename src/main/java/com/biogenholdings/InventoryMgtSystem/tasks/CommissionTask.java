@@ -4,6 +4,7 @@ import com.biogenholdings.InventoryMgtSystem.enums.UserRole;
 import com.biogenholdings.InventoryMgtSystem.models.User;
 import com.biogenholdings.InventoryMgtSystem.models.MonthlyCommissionInvoice;
 import com.biogenholdings.InventoryMgtSystem.repositories.MonthlyCommissionInvoiceRepository;
+import com.biogenholdings.InventoryMgtSystem.repositories.ProductReturnRepository;
 import com.biogenholdings.InventoryMgtSystem.repositories.SalesCommissionSummaryRepository;
 import com.biogenholdings.InventoryMgtSystem.repositories.UserRepository;
 import jakarta.transaction.Transactional;
@@ -24,26 +25,34 @@ public class CommissionTask {
     private final SalesCommissionSummaryRepository summaryRepository;
     private final MonthlyCommissionInvoiceRepository invoiceRepository;
     private final UserRepository userRepository;
+    private final ProductReturnRepository returnRepository;
 
     @Scheduled(cron = "0 0 0 L * ?")
     @Transactional
     public void generateMonthlyInvoices() {
 
         String monthYear = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
-
         List<User> salesReps = userRepository.findByRoleAndIsDeletedFalse(UserRole.SALES_REP);
 
         for (User rep : salesReps) {
 
-            BigDecimal monthlyTotal = summaryRepository.getMonthlyTotalForRep(rep.getId(), monthYear);
+            BigDecimal grossCommission = summaryRepository.getMonthlyTotalForRep(rep.getId(), monthYear);
+            grossCommission = (grossCommission != null) ? grossCommission : BigDecimal.ZERO;
 
-            if (monthlyTotal != null && monthlyTotal.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal totalReversal = returnRepository.getTotalReversalForRep(rep.getId(), monthYear);
+            totalReversal = (totalReversal != null) ? totalReversal : BigDecimal.ZERO;
+
+            BigDecimal netPayout = grossCommission.subtract(totalReversal);
+
+            if (grossCommission.compareTo(BigDecimal.ZERO) > 0 || totalReversal.compareTo(BigDecimal.ZERO) > 0) {
 
                 MonthlyCommissionInvoice invoice = MonthlyCommissionInvoice.builder()
-                        .commissionInvoiceNumber("BHG-" + monthYear + "-REP" + rep.getId())
+                        .commissionInvoiceNumber("STMT-" + monthYear + "-REP" + rep.getId())
                         .salesRep(rep)
                         .monthYear(monthYear)
-                        .MonthlyCommission(monthlyTotal)
+                        .MonthlyCommission(grossCommission)
+                        .totalReversalDeduction(totalReversal)
+                        .netPayout(netPayout)
                         .payoutStatus("UNPAID")
                         .generatedDate(LocalDateTime.now())
                         .build();

@@ -33,6 +33,12 @@ public class MonthlyCommissionInvoice {
 
     private BigDecimal MonthlyCommission;
 
+    @Column(name = "total_reversal_deduction")
+    private BigDecimal totalReversalDeduction;
+
+    @Column(name = "net_payout")
+    private BigDecimal netPayout;
+
     private String payoutStatus;
 
     private LocalDateTime generatedDate;

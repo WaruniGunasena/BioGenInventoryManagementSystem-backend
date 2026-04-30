@@ -19,6 +19,8 @@ public class AdminCommissionDTO {
     private String monthYear;
     private String salesRep;
     private BigDecimal monthlyCommissionAmount;
+    private BigDecimal totalReversalDeduction;
+    private BigDecimal netPayout;
     private String paymentStatus;
     private BigDecimal dueBalance;
     private BigDecimal totalPaid;

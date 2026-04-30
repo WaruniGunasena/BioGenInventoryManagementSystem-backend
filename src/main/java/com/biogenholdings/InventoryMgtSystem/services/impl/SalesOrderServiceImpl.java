@@ -45,7 +45,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final ProductReturnItemRepository productReturnItemRepository;
     private final ModelMapper modelMapper;
     private final SalesCommissionSummaryRepository commissionSummaryRepository;
-    // private final SalesCommissionItemRepository commissionItemRepository;
 
     @Override
     public String generateInvoiceNumber() {
@@ -108,19 +107,16 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             stock.setTotalQuantity(stock.getTotalQuantity() - itemReq.getQuantity());
             productStockRepository.save(stock);
 
-            // 2. REISSUE LOGIC: If this item is marked as a reissue
             BigDecimal itemTotalAmount;
             Integer itemReturnQty;
 
             if (Boolean.TRUE.equals(itemReq.getIsReissue())) {
-                // LOGIC: This is a reissue, price is 0
-                itemTotalAmount = BigDecimal.ZERO;
-                itemReturnQty = itemReq.getQuantity(); // This matches your 'return_qty' column requirement
 
-                // Update the ProductReturnItems table (FIFO logic we discussed)
+                itemTotalAmount = BigDecimal.ZERO;
+                itemReturnQty = itemReq.getQuantity();
+
                 updatePendingReturnItems(customer.getId(), product.getId(), itemReq.getQuantity());
             } else {
-                // LOGIC: Normal sale
                 itemTotalAmount = itemReq.getTotalAmount();
                 itemReturnQty = 0;
             }
@@ -159,7 +155,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         customer.setDueBalance(customer.getDueBalance().add(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType())));
 
-        // RESET Available Return Credit if it was applied as a cash discount in this order
         if (request.getReturnCredits().compareTo(BigDecimal.ZERO) > 0) {
             customer.setAvailableReturnCredit(customer.getAvailableReturnCredit().subtract(request.getReturnCredits()));
         }
@@ -359,7 +354,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         if (salesOrderStatus == SalesOrderStatus.Approved) {
             salesOrder.setPaymentStatus("PENDING");
 
-            createCommissionRecords(salesOrder);
+            if (salesOrder.getUser() != null && salesOrder.getUser().getRole() == UserRole.SALES_REP) {
+                createCommissionRecords(salesOrder);
+            }
         }
 
         salesOrder.setStatus(salesOrderStatus);
@@ -377,13 +374,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
     private void createCommissionRecords(SalesOrder order) {
-        // 1. Initialize the Summary
+
         SalesCommissionSummary summary = SalesCommissionSummary.builder()
                 .salesOrderId(order.getId().toString())
                 .invoiceNumber(order.getInvoiceNumber())
                 .salesRepId(order.getUser().getId())
                 .customer(order.getCustomer())
-                .invoiceDate(order.getInvoiceDate().atStartOfDay()) // Converting LocalDate to LocalDateTime
+                .invoiceDate(order.getInvoiceDate().atStartOfDay())
                 .CommissionableAmount(BigDecimal.ZERO)
                 .ReturnCommission(BigDecimal.ZERO)
                 .TotalCommission(BigDecimal.ZERO)
@@ -395,18 +392,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         List<SalesCommissionItem> commissionItems = new ArrayList<>();
 
-        // 2. Process each item from the Sales Order
         for (SalesOrderItem orderItem : order.getItems()) {
             Product product = orderItem.getProduct();
 
-            // Use the commission rate from the product (manager's intention)
             BigDecimal ratePercent = (product.getSRepCommissionRate() != null) ?
                     product.getSRepCommissionRate() : BigDecimal.ZERO;
 
-            // Skip if rate is 0 or null
             if (ratePercent.compareTo(BigDecimal.ZERO) <= 0) continue;
 
-            // Formula: (Qty * DiscountedPrice) * (Rate / 100)
             BigDecimal itemTotalValue = orderItem.getSellingPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
             BigDecimal itemCommission = itemTotalValue.multiply(ratePercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
 
@@ -423,12 +416,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
             commissionItems.add(commItem);
 
-            // Accumulate totals for the summary
             totalCommissionableAmount = totalCommissionableAmount.add(itemTotalValue);
             totalOrderCommission = totalOrderCommission.add(itemCommission);
         }
 
-        // 3. Finalize Summary if there are commissionable items
         if (!commissionItems.isEmpty()) {
             summary.setItems(commissionItems);
             summary.setCommissionableAmount(totalCommissionableAmount);
@@ -656,7 +647,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
     private void updatePendingReturnItems(Long customerId, Long productId, Integer quantityToReissue) {
-        // Fetch all pending items for this product and customer, ordered by oldest first (FIFO)
+
         List<ProductReturnItem> pendingReturns = productReturnItemRepository
                 .findByProductReturn_Customer_IdAndProduct_IdAndQuantityRemainingToReissueGreaterThan(customerId, productId, 0);
 
@@ -668,17 +659,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             int availableInThisReturn = returnItem.getQuantityRemainingToReissue();
 
             if (availableInThisReturn >= remainingToProcess) {
-                // This return row can satisfy the rest of the reissue
                 returnItem.setQuantityRemainingToReissue(availableInThisReturn - remainingToProcess);
 
-                // Check if fully reissued now
                 if (returnItem.getQuantityRemainingToReissue() == 0) {
                     returnItem.setReissued(true);
                 }
 
                 remainingToProcess = 0;
             } else {
-                // This return row only partially satisfies the reissue
                 remainingToProcess -= availableInThisReturn;
                 returnItem.setQuantityRemainingToReissue(0);
                 returnItem.setReissued(true);
