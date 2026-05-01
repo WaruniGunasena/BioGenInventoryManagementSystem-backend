@@ -72,4 +72,9 @@ public class SalesOrderController {
     public ResponseEntity<Response> getSalesOrderByID(@PathVariable Long salesOrderId){
         return ResponseEntity.ok(salesOrderService.getSalesOrderById(salesOrderId));
     }
+
+    @GetMapping("/updateDelivery/{orderId}")
+    public ResponseEntity<Response> updateSaleOrderDeliveryStatus(@PathVariable Long orderId){
+        return ResponseEntity.ok(salesOrderService.updateSalesOrderDeliveryStatus(orderId));
+    }
 }

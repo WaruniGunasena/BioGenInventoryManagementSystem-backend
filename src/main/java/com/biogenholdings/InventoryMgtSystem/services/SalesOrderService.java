@@ -24,4 +24,6 @@ public interface SalesOrderService {
     Response getCustomerSalesOrders(Long customerId);
 
     Response getSalesOrderById(Long orderId);
+
+    Response updateSalesOrderDeliveryStatus(Long orderId);
 }

@@ -11,17 +11,21 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class ProductWiseReportStrategy implements ReportStrategy {
+public class MonthlySalesReportStrategy implements ReportStrategy {
     final private ReportRepository reportRepo;
-    @Override public String getReportIdentifier() { return "PRODUCT_WISE"; }
-    @Override public String getReportName() { return "Product-wise Sales Performance Report"; }
+
+    @Override public String getReportIdentifier() { return "MONTHLY_SALES_REPORT"; }
+    @Override public String getReportName() { return "Monthly Sales Activity Report"; }
+
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
+        // 1. Handle Dates (Support for Daily/Monthly)
         LocalDate start = LocalDate.parse(params.get("startDate"));
         LocalDate end = LocalDate.parse(params.get("endDate"));
 
-        return reportRepo.getProductWiseSales(start, end);
+        Map<String, Object> summary = reportRepo.getSalesSummary(start, end);
+        return List.of(summary); // Critical: wrap in List
     }
 
     @Override
@@ -35,11 +39,6 @@ public class ProductWiseReportStrategy implements ReportStrategy {
 
     @Override
     public List<String> getColumnOrder() {
-        return List.of("Item_Code","Product_Name","Total_Qty","Total_Amount");
-    }
-
-    @Override
-    public Boolean addGrandTotal(){
-        return Boolean.TRUE;
+        return List.of("Gross_sales","Net_sales","Total_Invoices");
     }
 }

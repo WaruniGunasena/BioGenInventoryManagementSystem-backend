@@ -51,4 +51,9 @@ public class SalesOrderResponseDTO {
     private String invoiceDueDate;
 
     private BigDecimal returnCredits;
+
+    private Boolean isDelivered;
+
+    private LocalDate overDueOn;
+    private Long daysRemaining;
 }

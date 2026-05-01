@@ -4,6 +4,7 @@ import com.biogenholdings.InventoryMgtSystem.dtos.CashFlowSummaryDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.CreditDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.DebitDTO;
 import com.biogenholdings.InventoryMgtSystem.dtos.Response;
+import com.biogenholdings.InventoryMgtSystem.enums.DiscountTypeEnum;
 import com.biogenholdings.InventoryMgtSystem.models.GRN;
 import com.biogenholdings.InventoryMgtSystem.models.GRNPayment;
 import com.biogenholdings.InventoryMgtSystem.models.SalesOrder;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -129,10 +131,10 @@ public class CashFlowServiceImpl implements CashFlowService {
 
             dueAmount = (latestPayment != null)
                     ? latestPayment.getDueBalance()
-                    : salesOrder.getGrandTotal();
+                    : calculateNetTotal(salesOrder.getGrandTotal(),salesOrder.getCourierCharges(),salesOrder.getAdditionalDiscount(),salesOrder.getReturnCredits(),salesOrder.getAdditionalDiscountType());
 
         } else {
-            dueAmount = salesOrder.getGrandTotal();
+            dueAmount = calculateNetTotal(salesOrder.getGrandTotal(),salesOrder.getCourierCharges(),salesOrder.getAdditionalDiscount(),salesOrder.getReturnCredits(),salesOrder.getAdditionalDiscountType());
         }
 
         if (invoiceDate.isAfter(endDate) || dueDate.isBefore(startDate)) {
@@ -266,5 +268,34 @@ public class CashFlowServiceImpl implements CashFlowService {
         return difference.divide(previous, 4, java.math.RoundingMode.HALF_UP)
                 .multiply(new BigDecimal("100"))
                 .doubleValue();
+    }
+
+    private BigDecimal calculateNetTotal(
+            BigDecimal grandTotal,
+            BigDecimal courierCharges,
+            BigDecimal discountValue,
+            BigDecimal returnCredits,
+            DiscountTypeEnum discountType
+    ) {
+        if (grandTotal == null) grandTotal = BigDecimal.ZERO;
+        if (courierCharges == null) courierCharges = BigDecimal.ZERO;
+        if (discountValue == null) discountValue = BigDecimal.ZERO;
+        if (returnCredits == null) returnCredits = BigDecimal.ZERO;
+
+        BigDecimal discountAmount = BigDecimal.ZERO;
+
+
+        if (discountType == DiscountTypeEnum.cash) {
+            discountAmount = discountValue;
+        } else if (discountType == DiscountTypeEnum.percentage) {
+            discountAmount = grandTotal
+                    .multiply(discountValue)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        }
+
+        return grandTotal
+                .add(courierCharges)
+                .subtract(discountAmount)
+                .subtract(returnCredits);
     }
 }
