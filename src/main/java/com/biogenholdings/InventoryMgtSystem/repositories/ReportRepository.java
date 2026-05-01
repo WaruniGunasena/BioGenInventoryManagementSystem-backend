@@ -528,4 +528,30 @@ List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerI
             nativeQuery = true
     )
     List<Map<String, Object>> getAllIndividualSalesByDate();
+
+    @Query(value =
+            "SELECT " +
+                    "   p.name AS Product_Name, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 1 THEN soi.quantity ELSE 0 END) AS JANUARY, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 2 THEN soi.quantity ELSE 0 END) AS FEBRUARY, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 3 THEN soi.quantity ELSE 0 END) AS MARCH, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 4 THEN soi.quantity ELSE 0 END) AS APRIL, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 5 THEN soi.quantity ELSE 0 END) AS MAY, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 6 THEN soi.quantity ELSE 0 END) AS JUNE, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 7 THEN soi.quantity ELSE 0 END) AS JULY, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 8 THEN soi.quantity ELSE 0 END) AS AUGUST, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 9 THEN soi.quantity ELSE 0 END) AS SEPTEMBER, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 10 THEN soi.quantity ELSE 0 END) AS OCTOBER, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 11 THEN soi.quantity ELSE 0 END) AS NOVEMBER, " +
+                    "   SUM(CASE WHEN MONTH(so.invoice_date) = 12 THEN soi.quantity ELSE 0 END) AS DECEMBER " +
+                    "FROM products p " +
+                    "LEFT JOIN sales_order_items soi ON p.id = soi.product_id " +
+                    "LEFT JOIN sales_orders so ON soi.sales_order_id = so.id " +
+                    "   AND YEAR(so.invoice_date) = :year " +
+                    "   AND so.status = 'Approved' " +
+                    "   AND so.is_deleted = false " +
+                    "GROUP BY p.id, p.name " +
+                    "ORDER BY p.name ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getAnnualProductSales(@Param("year") int year);
 }
