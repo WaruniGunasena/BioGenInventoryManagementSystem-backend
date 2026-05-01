@@ -36,7 +36,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     ) p ON so.id = p.sales_order_id
     WHERE
         so.is_deleted = 0
-        AND (so.status = 'Approved' OR so.status = 'Pending')
+        AND (so.status = 'Approved' OR UPPER(so.status) = 'PENDING')
         AND (so.payment_status IS NULL OR so.payment_status != 'PAID')
     GROUP BY so.customer_id
 """, nativeQuery = true)
@@ -53,7 +53,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     BigDecimal getTotalOutstandingBalance();
 
     @Query("SELECT s FROM SalesOrder s JOIN FETCH s.customer " +
-            "WHERE s.paymentStatus IN ('PARTIAL', 'PENDING')" +
+            "WHERE UPPER(s.paymentStatus) IN ('PARTIAL', 'PENDING')" +
             "AND s.isDeleted = false")
     List<SalesOrder> findAllPendingDebits();
 
@@ -72,7 +72,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
                     "    /* 1. CALCULATE TRUE INVOICE TOTAL */ " +
                     "    (COALESCE(so.grand_total, 0) - " +
                     "    CASE " +
-                    "        WHEN so.additional_discount_type = 'PERCENTAGE' " +
+                    "        WHEN UPPER(so.additional_discount_type) = 'PERCENTAGE' " +
                     "        THEN (COALESCE(so.grand_total, 0) * COALESCE(so.additional_discount, 0) / 100) " +
                     "        ELSE COALESCE(so.additional_discount, 0) " +
                     "    END " +
@@ -93,9 +93,9 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
                     "    GROUP BY sales_order_id " +
                     ") p ON so.id = p.sales_order_id " +
 
-                    "WHERE so.status = 'APPROVED' " +
+                    "WHERE so.status = 'Approved' " +
                     "AND so.is_deleted = false " +
-                    "AND so.payment_status != 'PAID'",
+                    "AND (so.payment_status IS NULL OR so.payment_status <> 'PAID')",
             nativeQuery = true
     )
     BigDecimal calculateTotalAccountsReceivable();
@@ -106,9 +106,19 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     long countPendingSales();
 
     // 1. Approved Today's Sales
-    @Query("SELECT SUM(so.grandTotal - COALESCE(so.additionalDiscount, 0) + COALESCE(so.courierCharges, 0) - COALESCE(so.returnCredits, 0)) " +
+    @Query("SELECT SUM(" +
+            "  (so.grandTotal - " +
+            "    CASE " +
+            "      WHEN UPPER(so.additionalDiscountType) = 'PERCENTAGE' " +
+            "      THEN (so.grandTotal * COALESCE(so.additionalDiscount, 0) / 100) " +
+            "      ELSE COALESCE(so.additionalDiscount, 0) " +
+            "    END" +
+            "  ) " +
+            "  + COALESCE(so.courierCharges, 0) " +
+            "  - COALESCE(so.returnCredits, 0)" +
+            ") " +
             "FROM SalesOrder so " +
-            "WHERE so.status = com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus.Approved " +
+            "WHERE so.status = 'Approved' " +
             "AND so.isDeleted = false " +
             "AND so.approvedAt BETWEEN :start AND :end")
     BigDecimal sumApprovedSalesBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);

@@ -5,7 +5,6 @@ import com.biogenholdings.InventoryMgtSystem.repositories.ReportRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -19,8 +18,8 @@ public class DailyCustomerSalesSummaryStrategy implements ReportStrategy {
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
-        LocalDate date = LocalDate.parse(params.get("date"));
-        return reportRepo.getAllIndividualSalesByDate(date);
+//        LocalDate date = LocalDate.parse(params.get("date"));
+        return reportRepo.getAllIndividualSalesByDate();
     }
 
     @Override
