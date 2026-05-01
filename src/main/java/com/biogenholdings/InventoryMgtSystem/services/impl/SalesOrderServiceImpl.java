@@ -45,6 +45,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final SalesOrderPaymentRepository salesOrderPaymentRepository;
     private final ProductReturnItemRepository productReturnItemRepository;
     private final ModelMapper modelMapper;
+    private final SalesCommissionSummaryRepository commissionSummaryRepository;
 
     @Override
     public String generateInvoiceNumber() {
@@ -126,19 +127,16 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             stock.setTotalQuantity(stock.getTotalQuantity() - itemReq.getQuantity());
             productStockRepository.save(stock);
 
-            // 2. REISSUE LOGIC: If this item is marked as a reissue
             BigDecimal itemTotalAmount;
             Integer itemReturnQty;
 
             if (Boolean.TRUE.equals(itemReq.getIsReissue())) {
-                // LOGIC: This is a reissue, price is 0
-                itemTotalAmount = BigDecimal.ZERO;
-                itemReturnQty = itemReq.getQuantity(); // This matches your 'return_qty' column requirement
 
-                // Update the ProductReturnItems table (FIFO logic we discussed)
+                itemTotalAmount = BigDecimal.ZERO;
+                itemReturnQty = itemReq.getQuantity();
+
                 updatePendingReturnItems(customer.getId(), product.getId(), itemReq.getQuantity());
             } else {
-                // LOGIC: Normal sale
                 itemTotalAmount = itemReq.getTotalAmount();
                 itemReturnQty = 0;
             }
@@ -177,7 +175,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         customer.setDueBalance(customer.getDueBalance().add(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),BigDecimal.ZERO,order.getAdditionalDiscountType())));
 
-        // RESET Available Return Credit if it was applied as a cash discount in this order
         if (request.getReturnCredits().compareTo(BigDecimal.ZERO) > 0) {
             customer.setAvailableReturnCredit(customer.getAvailableReturnCredit().subtract(request.getReturnCredits()));
         }
@@ -424,6 +421,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             } else {
                 salesOrder.setPaymentStatus("PENDING");
             }
+
+            if (salesOrder.getUser() != null && salesOrder.getUser().getRole() == UserRole.SALES_REP) {
+                createCommissionRecords(salesOrder);
+            }
         }
 
         salesOrder.setStatus(salesOrderStatus);
@@ -438,6 +439,62 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .status(200)
                 .message(message)
                 .build();
+    }
+
+    private void createCommissionRecords(SalesOrder order) {
+
+        SalesCommissionSummary summary = SalesCommissionSummary.builder()
+                .salesOrderId(order.getId().toString())
+                .invoiceNumber(order.getInvoiceNumber())
+                .salesRepId(order.getUser().getId())
+                .customer(order.getCustomer())
+                .invoiceDate(order.getInvoiceDate().atStartOfDay())
+                .CommissionableAmount(BigDecimal.ZERO)
+                .ReturnCommission(BigDecimal.ZERO)
+                .TotalCommission(BigDecimal.ZERO)
+                .items(new ArrayList<>())
+                .build();
+
+        BigDecimal totalOrderCommission = BigDecimal.ZERO;
+        BigDecimal totalCommissionableAmount = BigDecimal.ZERO;
+
+        List<SalesCommissionItem> commissionItems = new ArrayList<>();
+
+        for (SalesOrderItem orderItem : order.getItems()) {
+            Product product = orderItem.getProduct();
+
+            BigDecimal ratePercent = (product.getSRepCommissionRate() != null) ?
+                    product.getSRepCommissionRate() : BigDecimal.ZERO;
+
+            if (ratePercent.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+            BigDecimal itemTotalValue = orderItem.getSellingPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity()));
+            BigDecimal itemCommission = itemTotalValue.multiply(ratePercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP));
+
+            SalesCommissionItem commItem = SalesCommissionItem.builder()
+                    .summary(summary)
+                    .productId(product.getId())
+                    .productName(product.getName())
+                    .quantity(orderItem.getQuantity())
+                    .sellingPrice(orderItem.getSellingPrice())
+                    .commissionRate(ratePercent.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP))
+                    .earnedCommission(itemCommission)
+                    .isReturned(false)
+                    .build();
+
+            commissionItems.add(commItem);
+
+            totalCommissionableAmount = totalCommissionableAmount.add(itemTotalValue);
+            totalOrderCommission = totalOrderCommission.add(itemCommission);
+        }
+
+        if (!commissionItems.isEmpty()) {
+            summary.setItems(commissionItems);
+            summary.setCommissionableAmount(totalCommissionableAmount);
+            summary.setTotalCommission(totalOrderCommission);
+
+            commissionSummaryRepository.save(summary);
+        }
     }
 
     @Override
@@ -529,7 +586,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<SalesOrderResponseDTO> salesOrderResponseDTOS = modelMapper.map(salesOrders, new TypeToken<List<SalesOrderResponseDTO>>() {}.getType());
 
         return Response.builder()
-                .message("Returned data sucessfully")
+                .message("Returned data successfully")
                 .status(200)
                 .salesOrderList(salesOrderResponseDTOS)
                 .build();
@@ -559,7 +616,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         return Response.builder()
                 .status(200)
-                .message("Delivery status updated sucessfully")
+                .message("Delivery status updated successfully")
                 .build();
     }
 
@@ -680,7 +737,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
     private void updatePendingReturnItems(Long customerId, Long productId, Integer quantityToReissue) {
-        // Fetch all pending items for this product and customer, ordered by oldest first (FIFO)
+
         List<ProductReturnItem> pendingReturns = productReturnItemRepository
                 .findByProductReturn_Customer_IdAndProduct_IdAndQuantityRemainingToReissueGreaterThan(customerId, productId, 0);
 
@@ -692,17 +749,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             int availableInThisReturn = returnItem.getQuantityRemainingToReissue();
 
             if (availableInThisReturn >= remainingToProcess) {
-                // This return row can satisfy the rest of the reissue
                 returnItem.setQuantityRemainingToReissue(availableInThisReturn - remainingToProcess);
 
-                // Check if fully reissued now
                 if (returnItem.getQuantityRemainingToReissue() == 0) {
                     returnItem.setReissued(true);
                 }
 
                 remainingToProcess = 0;
             } else {
-                // This return row only partially satisfies the reissue
                 remainingToProcess -= availableInThisReturn;
                 returnItem.setQuantityRemainingToReissue(0);
                 returnItem.setReissued(true);
@@ -722,7 +776,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         );
 
                 if (!returnItems.isEmpty()) {
-                    ProductReturnItem returnItem = returnItems.get(0);
+                    ProductReturnItem returnItem = returnItems.getFirst();
                     returnItem.setQuantityRemainingToReissue(returnItem.getQuantityRemainingToReissue() + item.getQuantity());
                     returnItem.setReissued(false);
                     productReturnItemRepository.save(returnItem);
