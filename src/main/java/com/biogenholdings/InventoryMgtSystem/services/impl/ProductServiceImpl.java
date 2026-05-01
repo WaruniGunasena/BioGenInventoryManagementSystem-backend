@@ -133,6 +133,9 @@ public class ProductServiceImpl implements ProductService {
         if(productDTO.getMrp() != null){
             existingProduct.setMrp(productDTO.getMrp());
         }
+        if (productDTO.getSRepCommissionRate() != null){
+            existingProduct.setSRepCommissionRate(productDTO.getSRepCommissionRate());
+        }
         if(productDTO.getOpeningBalance() != null){
             ProductStock stock = productStockRepository.findByProductId(productDTO.getId())
                             .orElseThrow(() -> new NotFoundException("product not found"));

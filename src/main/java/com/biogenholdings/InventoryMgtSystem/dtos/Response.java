@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -16,6 +17,7 @@ public class Response {
 
     private int status;
     private String message;
+    private Object data;
 
     private String token;
     private UserRole role;
@@ -23,6 +25,10 @@ public class Response {
 
     private Integer totalPages;
     private Long totalElements;
+    private BigDecimal totalAmountCommissionSalesRep;
+    private BigDecimal totalAmountCommissionReversal;
+    private BigDecimal netPayout;
+    private List<CommissionReversalDTO> reversalData;
 
     private UserDTO user;
     private List<UserDTO> users;

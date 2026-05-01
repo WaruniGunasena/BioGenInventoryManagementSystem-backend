@@ -25,7 +25,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "(SELECT COALESCE(SUM(" +
             "    COALESCE(grand_total, 0) - " +
             "    CASE " +
-            "        WHEN additional_discount_type = 'PERCENTAGE' " +
+            "        WHEN UPPER(additional_discount_type)= 'PERCENTAGE' " +
             "        THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
             "        ELSE COALESCE(additional_discount, 0) " +
             "    END " +
@@ -37,7 +37,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "(SELECT COALESCE(SUM(" +
             "    COALESCE(grand_total, 0) - " +
             "    CASE " +
-            "        WHEN additional_discount_type = 'PERCENTAGE' " +
+            "        WHEN UPPER(additional_discount_type)= 'PERCENTAGE' " +
             "        THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
             "        ELSE COALESCE(additional_discount, 0) " +
             "    END " +
@@ -45,8 +45,8 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "    - COALESCE(return_credits, 0)" +
             "), 0) FROM sales_orders WHERE invoice_date = :date AND status = 'Approved' AND is_deleted = false) as approvedSales, "+
             // 2. Income Breakdown (From SalesOrderPayment)
-            "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments WHERE CAST(created_at AS DATE) = :date AND payment_method = 'CASH' AND is_deleted = false) as cashIncome, " +
-            "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments WHERE CAST(created_at AS DATE) = :date AND payment_method = 'CHEQUE' AND is_deleted = false) as chequeIncome, " +
+            "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments WHERE CAST(created_at AS DATE) = :date AND UPPER(payment_method) = 'CASH' AND is_deleted = false) as cashIncome, " +
+            "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments WHERE CAST(created_at AS DATE) = :date AND UPPER(payment_method) = 'CHEQUE' AND is_deleted = false) as chequeIncome, " +
 
             // 3. Expenses (From GRNPayment)
             "(SELECT COALESCE(SUM(amount), 0) FROM grn_payments WHERE CAST(created_at AS DATE) = :date AND is_deleted = false) as totalExpenses " +
@@ -57,7 +57,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     @Query(value = "SELECT c.name as customerName, SUM(so.grand_total) as totalSpent, COUNT(so.id) as orderCount " +
             "FROM sales_orders so " +
             "JOIN customers c ON so.customer_id = c.id " +
-            "WHERE so.is_deleted = false AND so.status = 'APPROVED' " +
+            "WHERE so.is_deleted = false AND UPPER(so.status) = 'APPROVED' " +
             "GROUP BY c.id ORDER BY totalSpent DESC LIMIT 10", nativeQuery = true)
     List<Map<String, Object>> getTopCustomers();
 
@@ -72,7 +72,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     @Query(value = "SELECT u.username as repName, SUM(so.grand_total) as totalSales " +
             "FROM sales_orders so " +
             "JOIN users u ON so.user_id = u.id " +
-            "WHERE so.status = 'APPROVED' AND so.is_deleted = false " +
+            "WHERE so.status = 'Approved' AND so.is_deleted = false " +
             "GROUP BY u.id", nativeQuery = true)
     List<Map<String, Object>> getSalesRepPerformance();
 
@@ -133,7 +133,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getDashboardExpiryAlerts();
 
     // 1.3.3 Pending Orders Count
-    @Query(value = "SELECT COUNT(id) as count FROM sales_orders WHERE status = 'Pending' AND is_deleted = false", nativeQuery = true)
+    @Query(value = "SELECT COUNT(id) as count FROM sales_orders WHERE UPPER(status) = 'PENDING' AND is_deleted = false", nativeQuery = true)
     Map<String, Object> getDashboardPendingCount();
 
     // 1.3.4 Top Selling Items (Last 30 days)
@@ -154,7 +154,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "/* Financial Calculation: (GrandTotal - Discount) + Courier - ReturnCredits */ " +
             "(COALESCE(so.grand_total, 0) - " +
             " CASE " +
-            "   WHEN so.additional_discount_type = 'PERCENTAGE' " +
+            "   WHEN UPPER(so.additional_discount_type) = 'PERCENTAGE' " +
             "   THEN (COALESCE(so.grand_total, 0) * COALESCE(so.additional_discount, 0) / 100) " +
             "   ELSE COALESCE(so.additional_discount, 0) " +
             " END " +
@@ -182,54 +182,69 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
 
     // 3.5 Customer-wise Sales (Lists every Customer who bought)
     @Query(value = "SELECT " +
-            "c.name as Customer_Name, " +
-            "c.address as Address, " +
-            "COUNT(so.id) as Total_Invoices, " +
-            "SUM( " +
+            "c.name AS customer_name, " +
+            "c.address AS address, " +
+            "COUNT(so.id) AS total_invoices, " +
+            "COALESCE(SUM( " +
             "  COALESCE(so.grand_total, 0) - " +
             "  CASE " +
-            "    WHEN so.additional_discount_type = 'PERCENTAGE' " +
+            "    WHEN UPPER(so.additional_discount_type) = 'PERCENTAGE'" +
             "    THEN (COALESCE(so.grand_total, 0) * COALESCE(so.additional_discount, 0) / 100) " +
             "    ELSE COALESCE(so.additional_discount, 0) " +
             "  END " +
             "  + COALESCE(so.courier_charges, 0) " +
             "  - COALESCE(so.return_credits, 0) " +
-            ") as Total_Revenue " +
+            "), 0) AS total_revenue " +
             "FROM sales_orders so " +
             "JOIN customers c ON so.customer_id = c.id " +
             "WHERE UPPER(so.status) = 'APPROVED' " +
             "AND so.is_deleted = false " +
             "AND so.invoice_date BETWEEN :start AND :end " +
-            "GROUP BY c.id, c.name " +
-            "ORDER BY Total_Revenue DESC", nativeQuery = true)
-    List<Map<String, Object>> getCustomerWiseSales(@Param("start") LocalDate start, @Param("end") LocalDate end);
+            "GROUP BY c.id, c.name, c.address " +
+            "ORDER BY total_revenue DESC",
+            nativeQuery = true)
+    List<Map<String, Object>> getCustomerWiseSales(
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end
+    );
 
     // 3.6 Sales Summary (Financial totals)
     // Note: NetSales logic usually subtracts discounts from Gross.
-    @Query(value = "SELECT " +
-            "COUNT(CASE WHEN UPPER(status) IN ('APPROVED','PENDING') THEN 1 END) AS Total_Invoices, " +
-            "COALESCE(SUM( " +
-            "   grand_total - " +
-            "   (CASE " +
-            "       WHEN additional_discount_type = 'PERCENTAGE' THEN (grand_total * additional_discount / 100) " +
-            "       ELSE additional_discount " +
-            "   END) + courier_charges - return_credits " +
-            "), 0) as Gross_Sales, " +
+    @Query(value =
+            "SELECT " +
+                    "COUNT(CASE WHEN UPPER(status) IN ('APPROVED','PENDING') THEN 1 END) AS Total_Invoices, " +
 
-            "COALESCE(SUM( " +
-            "   CASE WHEN UPPER(status) = 'APPROVED' THEN " +
-            "       (grand_total - " +
-            "           (CASE " +
-            "               WHEN additional_discount_type = 'PERCENTAGE' THEN (grand_total * additional_discount / 100) " +
-            "               ELSE additional_discount " +
-            "           END) + courier_charges - return_credits " +
-            "       ) " +
-            "   ELSE 0 END " +
-            "), 0) as Net_Sales " + // Only Approved
-            "FROM sales_orders " +
-            "WHERE is_deleted = false " +
-            "AND status IN ('Approved', 'Pending', 'APPROVED', 'PENDING') " +
-            "AND invoice_date BETWEEN :start AND :end", nativeQuery = true)
+                    "COALESCE(SUM( " +
+                    "   COALESCE(grand_total, 0) - " +
+                    "   CASE " +
+                    "       WHEN UPPER(additional_discount_type) = 'PERCENTAGE' " +
+                    "           THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
+                    "       ELSE COALESCE(additional_discount, 0) " +
+                    "   END " +
+                    "   + COALESCE(courier_charges, 0) " +
+                    "   - COALESCE(return_credits, 0) " +
+                    "), 0) AS Gross_Sales, " +
+
+                    "COALESCE(SUM( " +
+                    "   CASE WHEN UPPER(status) = 'APPROVED' THEN " +
+                    "       (COALESCE(grand_total, 0) - " +
+                    "           CASE " +
+                    "               WHEN UPPER(additional_discount_type) = 'PERCENTAGE' " +
+                    "                   THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
+                    "               ELSE COALESCE(additional_discount, 0) " +
+                    "           END " +
+                    "        + COALESCE(courier_charges, 0) " +
+                    "        - COALESCE(return_credits, 0) " +
+                    "       ) " +
+                    "   ELSE 0 END " +
+                    "), 0) AS Net_Sales " +
+
+                    "FROM sales_orders " +
+                    "WHERE is_deleted = false " +
+                    "AND (status IS NULL OR UPPER(status) IN ('APPROVED', 'PENDING')) " +  // <-- FIXED SPACE
+                    "AND invoice_date BETWEEN :start AND :end",
+            nativeQuery = true
+    )
     Map<String, Object> getSalesSummary(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
     // 4.2 Customer Balance Report (Overall view of what is owed)
@@ -404,7 +419,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
 //                    "   /* Standardized Formula: (GrandTotal - Discount) + Courier - Returns */ " +
 //                    "   (COALESCE(s.grand_total, 0) - " +
 //                    "    CASE " +
-//                    "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+//                    "       WHEN UPPER(so.additional_discount_type) = 'PERCENTAGE'" +
 //                    "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
 //                    "       ELSE COALESCE(s.additional_discount, 0) " +
 //                    "    END " +
@@ -439,7 +454,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
                 "   /* 1. NET INVOICE AMOUNT */ " +
                 "   (COALESCE(s.grand_total, 0) - " +
                 "    CASE " +
-                "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+                "       WHEN UPPER(s.additional_discount_type) = 'PERCENTAGE'" +
                 "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
                 "       ELSE COALESCE(s.additional_discount, 0) " +
                 "    END " +
@@ -450,7 +465,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
                 "   /* 3. CALCULATE BALANCE (Amount - Paid_Amount) */ " +
                 "   ((COALESCE(s.grand_total, 0) - " +
                 "    CASE " +
-                "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+                "       WHEN UPPER(s.additional_discount_type) = 'PERCENTAGE' " +
                 "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
                 "       ELSE COALESCE(s.additional_discount, 0) " +
                 "    END " +
@@ -482,7 +497,7 @@ List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerI
                     "   /* 1. Net Invoice Amount Calculation */ " +
                     "   (COALESCE(s.grand_total, 0) - " +
                     "    CASE " +
-                    "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+                    "       WHEN UPPER(s.additional_discount_type) = 'PERCENTAGE'" +
                     "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
                     "       ELSE COALESCE(s.additional_discount, 0) " +
                     "    END " +
@@ -493,7 +508,7 @@ List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerI
                     "   /* 3. Balance for this specific invoice */ " +
                     "   ((COALESCE(s.grand_total, 0) - " +
                     "    CASE " +
-                    "       WHEN s.additional_discount_type = 'PERCENTAGE' " +
+                    "       WHEN UPPER(s.additional_discount_type) = 'PERCENTAGE'" +
                     "       THEN (COALESCE(s.grand_total, 0) * COALESCE(s.additional_discount, 0) / 100) " +
                     "       ELSE COALESCE(s.additional_discount, 0) " +
                     "    END " +
@@ -512,5 +527,5 @@ List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerI
                     "ORDER BY s.invoice_number ASC",
             nativeQuery = true
     )
-    List<Map<String, Object>> getAllIndividualSalesByDate(@Param("date") LocalDate date);
+    List<Map<String, Object>> getAllIndividualSalesByDate();
 }

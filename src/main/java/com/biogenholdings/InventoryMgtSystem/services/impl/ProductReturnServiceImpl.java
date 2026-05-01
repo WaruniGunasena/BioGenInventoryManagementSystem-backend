@@ -8,6 +8,7 @@ import com.biogenholdings.InventoryMgtSystem.repositories.*;
 import com.biogenholdings.InventoryMgtSystem.services.ProductReturnService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,10 +25,12 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
+
 public class ProductReturnServiceImpl implements ProductReturnService {
     private final SalesOrderRepository salesOrderRepository;
     private final ProductReturnRepository productReturnRepository;
-    private final CustomerRepository customerRepository; // Added for debt reduction
+    private final CustomerRepository customerRepository;
     private final ProductStockRepository productStockRepository;
     private final UserRepository userRepository;
     private final ProductReturnItemRepository productReturnItemRepository;
@@ -51,7 +54,7 @@ public class ProductReturnServiceImpl implements ProductReturnService {
                 .returnDate(LocalDateTime.now())
                 .remarks(request.getRemarks())
                 .createdBy(user)
-                .status(SalesOrderStatus.Pending) // Make sure you have this Enum
+                .status(SalesOrderStatus.Pending)
                 .returnItems(new ArrayList<>())
                 .totalReturnAmount(BigDecimal.ZERO)
                 .totalCommissionReversal(BigDecimal.ZERO)
@@ -63,7 +66,6 @@ public class ProductReturnServiceImpl implements ProductReturnService {
 
         for (ReturnItemRequestDTO itemRequest : request.getItems()) {
 
-            // 3. Find original item & validate quantity
             SalesOrderItem originalItem = order.getItems().stream()
                     .filter(i -> i.getProduct().getId().equals(itemRequest.getProductId()))
                     .findFirst()
@@ -81,24 +83,30 @@ public class ProductReturnServiceImpl implements ProductReturnService {
 
             int otherPendingQty = (pendingResult != null) ? pendingResult : 0;
 
-            // 2. Real Available = Original - (Already Approved) - (Other Pending)
-
             int maxAllowed = originalItem.getQuantity() - alreadyReturnedQty - otherPendingQty;
 
             if (itemRequest.getQuantity() > maxAllowed) {
                 throw new RuntimeException("Limit exceeded. " + otherPendingQty + " units are pending in another note.");
             }
 
-
-            // 4. Calculate Values
             BigDecimal unitPrice = originalItem.getSellingPrice();
             BigDecimal subTotal = unitPrice.multiply(BigDecimal.valueOf(itemRequest.getQuantity()));
-            BigDecimal commRate = originalItem.getProduct().getSRepCommissionRate();
-            BigDecimal commReversal = (commRate != null)
-                    ? subTotal.multiply(commRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                    : BigDecimal.ZERO;
 
-            // 5. Create Return Item Entity (NO quantityRemainingToReissue update yet!)
+            BigDecimal commReversal = BigDecimal.ZERO;
+
+            if (Boolean.TRUE.equals(itemRequest.getIsReusable())) {
+                BigDecimal commRate = originalItem.getProduct().getSRepCommissionRate();
+                commReversal = (commRate != null)
+                        ? subTotal.multiply(commRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
+
+                log.info("Reusable item detected. Commission reversal of {} calculated for product: {}",
+                        commReversal, originalItem.getProduct().getName());
+            } else {
+                log.info("Non-reusable item detected. Skipping commission reversal for product: {}",
+                        originalItem.getProduct().getName());
+            }
+
             ProductReturnItem returnItem = ProductReturnItem.builder()
                     .productReturn(productReturn)
                     .product(originalItem.getProduct())
@@ -108,7 +116,7 @@ public class ProductReturnServiceImpl implements ProductReturnService {
                     .isReusable(itemRequest.getIsReusable())
                     .returnReason(itemRequest.getReason())
                     .commissionReversalAmount(commReversal)
-                    .quantityRemainingToReissue(0) // Logic moved to Approve
+                    .quantityRemainingToReissue(0)
                     .build();
 
             productReturn.getReturnItems().add(returnItem);
@@ -132,7 +140,6 @@ public class ProductReturnServiceImpl implements ProductReturnService {
         ProductReturn productReturn = productReturnRepository.findByReturnNumber(returnId)
                 .orElseThrow(() -> new NotFoundException("Return not found with Number: " + returnId));
 
-        // Map Entity to Invoice DTO
         ProductReturnResponseDTO invoiceData = ProductReturnResponseDTO.builder()
                 .returnNumber(productReturn.getReturnNumber())
                 .returnDate(productReturn.getReturnDate())
@@ -164,7 +171,7 @@ public class ProductReturnServiceImpl implements ProductReturnService {
         return Response.builder()
                 .status(200)
                 .message("Return details fetched successfully")
-                .productReturn(invoiceData) // Assuming your Response class has an 'Object data' field
+                .productReturn(invoiceData)
                 .build();
     }
 
@@ -183,7 +190,6 @@ public class ProductReturnServiceImpl implements ProductReturnService {
                         .totalReturnAmount(ret.getTotalReturnAmount())
                         .remarks(ret.getRemarks())
                         .status(ret.getStatus())
-                        // Mapping items for the "View" modal
                         .items(ret.getReturnItems().stream().map(item ->
                                 ReturnItemDetailDTO.builder()
                                         .productName(item.getProduct().getName())
@@ -208,24 +214,20 @@ public class ProductReturnServiceImpl implements ProductReturnService {
 
     @Override
     public Response getCustomerReturnSummary(Long customerId) {
-        // 1. Fetch the Customer
+
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new NotFoundException("Customer not found with ID: " + customerId));
 
-        // 2. Fetch all individual pending return line items
         List<ProductReturnItem> pendingItems = productReturnItemRepository
                 .findByProductReturn_Customer_IdAndQuantityRemainingToReissueGreaterThan(customerId, 0);
 
-        // 3. Logic to Group by Product and Sum the Quantities
         List<ReturnItemDetailDTO> aggregatedProducts = new ArrayList<>(pendingItems.stream()
                 .collect(Collectors.groupingBy(
-                        item -> item.getProduct().getId(), // Group by ID
+                        item -> item.getProduct().getId(),
                         Collectors.collectingAndThen(
                                 Collectors.toList(),
                                 list -> {
-                                    // Take product info from the first item in the group
                                     Product p = list.getFirst().getProduct();
-                                    // Sum all quantities in this group
                                     Integer totalQty = list.stream()
                                             .mapToInt(ProductReturnItem::getQuantityRemainingToReissue)
                                             .sum();
@@ -242,7 +244,6 @@ public class ProductReturnServiceImpl implements ProductReturnService {
                 ))
                 .values());
 
-        // 4. Map to the Final DTO
         CustomerWiseReturnItemDTO summary = CustomerWiseReturnItemDTO.builder()
                 .customerCurrentDue(customer.getAvailableReturnCredit())
                 .returnProducts(aggregatedProducts)
@@ -262,27 +263,21 @@ public class ProductReturnServiceImpl implements ProductReturnService {
         User currentUser = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User Not found"));
 
-        // 1. Fetch the Return Record
         ProductReturn productReturn = productReturnRepository.findByReturnNumber(returnId)
                 .orElseThrow(() -> new NotFoundException("Return Invoice not found"));
 
-        // 2. Prevent double-deletion
         if (Boolean.TRUE.equals(productReturn.getIsDeleted())) {
             throw new RuntimeException("Already deleted.");
         }
 
-        // 3. CRITICAL VALIDATION: Only allow deletion if status is PENDING
-        // Since Approved ones aren't deletable, we don't need to reverse stock or dueBalance
         if (productReturn.getStatus() != SalesOrderStatus.Pending) {
             throw new RuntimeException("Cannot delete return. Only PENDING returns can be deleted. Approved returns must remain for auditing.");
         }
 
-        // 4. PERFORM SOFT DELETE
-        // No math needed here because PENDING returns haven't affected stock or finances yet
         productReturn.setIsDeleted(true);
         productReturn.setDeletedBy(currentUser);
         productReturn.setDeletedAt(LocalDateTime.now());
-        productReturn.setStatus(SalesOrderStatus.Deleted); // Optional: explicitly set a VOIDED status
+        productReturn.setStatus(SalesOrderStatus.Deleted);
 
         productReturnRepository.save(productReturn);
 
@@ -308,7 +303,6 @@ public class ProductReturnServiceImpl implements ProductReturnService {
 
         for (ProductReturnItem item : productReturn.getReturnItems()) {
 
-            // 1. Update original SalesOrder item so we know it's returned
             SalesOrderItem originalItem = productReturn.getSalesOrder().getItems().stream()
                     .filter(i -> i.getProduct().getId().equals(item.getProduct().getId()))
                     .findFirst()
@@ -318,24 +312,21 @@ public class ProductReturnServiceImpl implements ProductReturnService {
             originalItem.setReturnQty(currentReturnQty + item.getQuantity());
             salesOrderItemRepository.save(originalItem);
 
-            // 2. Logic for Reissue vs Restock
             if (item.getIsReusable()) {
-                // RESTOCK Logic
+
                 ProductStock stock = productStockRepository.findByProductId(item.getProduct().getId())
                         .orElseThrow(() -> new NotFoundException("Stock not found"));
                 stock.setTotalQuantity(stock.getTotalQuantity() + item.getQuantity());
                 productStockRepository.save(stock);
 
-                // This amount will reduce the customer's cash debt
                 amountToReduceFromDue = amountToReduceFromDue.add(item.getSubTotal());
                 item.setQuantityRemainingToReissue(0);
             } else {
-                // REISSUE Logic: Item is now officially a "Voucher" for the customer
+
                 item.setQuantityRemainingToReissue(item.getQuantity());
             }
         }
 
-        // 3. Update Customer Finances
         Customer customer = productReturn.getCustomer();
 
         if (amountToReduceFromDue.compareTo(BigDecimal.ZERO) > 0) {
@@ -345,10 +336,9 @@ public class ProductReturnServiceImpl implements ProductReturnService {
             customerRepository.save(customer);
         }
 
-        // 4. Finalize Return Status
         productReturn.setStatus(SalesOrderStatus.Approved);
         productReturn.setReturnNumber("RET-" + String.format("%03d", productReturn.getId()));
-        productReturn.setApprovedBy(approvedBy); // Assuming you add this column
+        productReturn.setApprovedBy(approvedBy);
         productReturn.setApprovedAt(LocalDateTime.now());
 
         productReturnRepository.save(productReturn);
