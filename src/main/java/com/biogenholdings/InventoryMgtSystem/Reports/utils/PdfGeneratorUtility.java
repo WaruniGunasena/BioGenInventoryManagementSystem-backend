@@ -70,20 +70,41 @@ public class PdfGeneratorUtility {
                 }
 
                 // 3. ADD DATA ROWS & CALCULATE TOTALS
+                Calendar cal = Calendar.getInstance();
+                int currentMonth = cal.get(Calendar.MONTH) + 1;
 
                 for (Map<String, Object> row : data) {
                     for (String key : keys) {
                         Object value = row.get(key);
-                        String cellText = "";
+                        String cellText;
+                        boolean isFutureMonth = false;
+                        List<String> months = Arrays.asList("JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER");
 
-                        // NEW: Formatting Logic for Decimals and Scientific Notation
-                        if (value instanceof BigDecimal) {
-                            // Forces 2 decimal places and removes scientific notation like 0E-8
-                            cellText = ((BigDecimal) value).setScale(2, RoundingMode.HALF_UP).toPlainString();
+                        if (months.contains(key.toUpperCase())) {
+                            int columnMonthIndex = months.indexOf(key.toUpperCase()) + 1;
+                            // If the report date string contains the current year AND column is in the future
+                            if (date.contains(String.valueOf(cal.get(Calendar.YEAR))) && columnMonthIndex > currentMonth) {
+                                isFutureMonth = true;
+                            }
+                        }
+                        if (isFutureMonth) {
+                            cellText = ""; // Keep blank for future months
+                        } else if (value == null) {
+                            cellText = "-";
+                        }
+                        else if (value instanceof BigDecimal bdValue) {
+
+                            // Check if the value is zero
+                            if (bdValue.compareTo(BigDecimal.ZERO) == 0) {
+                                cellText = "-";
+                            } else {
+                                // Forces 2 decimal places and removes scientific notation like 0E-8
+                                cellText = bdValue.setScale(2, RoundingMode.HALF_UP).toPlainString();
+                            }
                         } else if (value instanceof Double || value instanceof Float) {
                             cellText = String.format("%.2f", value);
                         } else {
-                            cellText = (value != null) ? String.valueOf(value) : "";
+                            cellText = String.valueOf(value);
                         }
 
                         // Summation Logic (Uses the cleaned cellText)
@@ -118,13 +139,30 @@ public class PdfGeneratorUtility {
                 }
 
                 // 4. ADD GRAND TOTAL ROW
-                if(addGrandTotal) {
-                    for (String key : keys) {
+                if (addGrandTotal) {
+                    // 1. FIRST: Calculate all totals by looping through the data once
+                    for (Map<String, Object> row : data) {
+                        for (String key : row.keySet()) {
+                            if ("QTY_IN".equals(key) || "QTY_OUT".equals(key)) {
+                                Object value = row.get(key);
+                                if (value instanceof Number) {
+                                    BigDecimal currentTotal = columnTotals.getOrDefault(key, BigDecimal.ZERO);
+                                    columnTotals.put(key, currentTotal.add(new BigDecimal(value.toString())));
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. SECOND: Now that we have the sums, add ONE footer row to the table
+                    for (String key : keys) { // 'keys' is your ordered list of column names
                         PdfPCell totalCell;
+
                         if (keys.indexOf(key) == 0) {
                             totalCell = new PdfPCell(new Phrase("GRAND TOTAL", footerFont));
                         } else if (columnTotals.containsKey(key)) {
-                            totalCell = new PdfPCell(new Phrase(columnTotals.get(key).toString(), footerFont));
+                            // Format as Integer (removing .00) for stock quantities
+                            String totalStr = columnTotals.get(key).toBigInteger().toString();
+                            totalCell = new PdfPCell(new Phrase(totalStr, footerFont));
                             totalCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
                         } else {
                             totalCell = new PdfPCell(new Phrase("", footerFont));
@@ -136,6 +174,7 @@ public class PdfGeneratorUtility {
                     }
                 }
 
+// 3. FINALLY: Add the table to the document
                 document.add(table);
             }
 

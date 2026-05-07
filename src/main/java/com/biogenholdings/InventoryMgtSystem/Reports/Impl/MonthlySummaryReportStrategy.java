@@ -12,16 +12,16 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class DailySummaryReportStrategy implements ReportStrategy {
+public class MonthlySummaryReportStrategy implements ReportStrategy {
 
     @Autowired
     private ReportRepository reportRepo;
 
     @Override
-    public String getReportIdentifier() { return "DAILY_SUMMARY"; }
+    public String getReportIdentifier() { return "MONTHLY_SUMMARY"; }
 
     @Override
-    public String getReportName() { return "Daily Business Summary Report"; }
+    public String getReportName() { return "Monthly Business Summary Report"; }
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
@@ -66,6 +66,6 @@ public class DailySummaryReportStrategy implements ReportStrategy {
     @Override
     public List<String> getColumnOrder() {
 
-        return List.of("Gross_sales","Est_Net_sales","Supplier_Payments","Cash_Collected","Cheque_Collected","Total_Collection");
+        return List.of("Date","Gross_sales","Est_Net_sales","Supplier_Payments","Cash_Collected","Cheque_Collected","Total_Collection");
     }
 }
