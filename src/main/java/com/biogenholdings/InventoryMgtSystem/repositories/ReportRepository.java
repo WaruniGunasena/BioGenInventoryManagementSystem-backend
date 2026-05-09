@@ -53,36 +53,49 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "FROM (SELECT 1) as dummy", nativeQuery = true)
     Map<String, Object> getFullDailyBusinessSummary(@Param("date") LocalDate date);
 
-    @Query(value = "SELECT " +
-            // 1. Approved Sales (Net Revenue)
-            "(SELECT COALESCE(SUM(" +
-            "    COALESCE(grand_total, 0) - " +
-            "    CASE " +
-            "        WHEN UPPER(additional_discount_type) = 'PERCENTAGE' " +
-            "        THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
-            "        ELSE COALESCE(additional_discount, 0) " +
-            "    END " +
-            "    + COALESCE(courier_charges, 0) " +
-            "    - COALESCE(return_credits, 0)" +
-            "), 0), invoice_date as Date FROM sales_orders " +
-            " WHERE invoice_date BETWEEN :startDate AND :endDate " +
-            " AND status = 'Approved' AND is_deleted = false) as approvedSales, " +
-
-            // 2. Income Breakdown (Cash vs Cheque Collections)
-            "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments " +
-            " WHERE CAST(created_at AS DATE) BETWEEN :startDate AND :endDate " +
-            " AND UPPER(payment_method) = 'CASH' AND is_deleted = false) as cashIncome, " +
-
-            "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments " +
-            " WHERE CAST(created_at AS DATE) BETWEEN :startDate AND :endDate " +
-            " AND UPPER(payment_method) = 'CHEQUE' AND is_deleted = false) as chequeIncome, " +
-
-            // 3. Expenses (GRN Payments)
-            "(SELECT COALESCE(SUM(amount), 0) FROM grn_payments " +
-            " WHERE CAST(created_at AS DATE) BETWEEN :startDate AND :endDate " +
-            " AND is_deleted = false) as totalExpenses " +
-            "FROM (SELECT 1) as dummy", nativeQuery = true)
-    Map<String, Object> getBusinessSummaryByRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    @Query(value =
+            "SELECT " +
+                    "    all_dates.Date, " +
+                    "    COALESCE(sales.gross_sales, 0) AS Gross_Sales, " +
+                    "    /* Est Net Profit: Gross Sales - Expenses (Simplified for this report) */ " +
+                    "    (COALESCE(sales.gross_sales, 0) - COALESCE(expenses.total_expenses, 0)) AS Est_Net_Profit, " +
+                    "    COALESCE(expenses.total_expenses, 0) AS Supplier_Payments, " +
+                    "    COALESCE(collections.cash, 0) AS Cash_Collected, " +
+                    "    COALESCE(collections.cheque, 0) AS Cheque_Collected, " +
+                    "    (COALESCE(collections.cash, 0) + COALESCE(collections.cheque, 0)) AS Total_Amount " +
+                    "FROM ( " +
+                    "    /* Generate a list of all unique transaction dates in the range */ " +
+                    "    SELECT invoice_date AS Date FROM sales_orders WHERE invoice_date BETWEEN :startDate AND :endDate " +
+                    "    UNION " +
+                    "    SELECT CAST(created_at AS DATE) FROM sales_order_payments WHERE CAST(created_at AS DATE) BETWEEN :startDate AND :endDate " +
+                    "    UNION " +
+                    "    SELECT CAST(created_at AS DATE) FROM grn_payments WHERE CAST(created_at AS DATE) BETWEEN :startDate AND :endDate " +
+                    ") all_dates " +
+                    "LEFT JOIN ( " +
+                    "    SELECT invoice_date, " +
+                    "           SUM(COALESCE(grand_total, 0) - " +
+                    "               CASE WHEN UPPER(additional_discount_type) = 'PERCENTAGE' " +
+                    "                    THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
+                    "                    ELSE COALESCE(additional_discount, 0) END " +
+                    "               + COALESCE(courier_charges, 0) - COALESCE(return_credits, 0)) as gross_sales " +
+                    "    FROM sales_orders WHERE status = 'Approved' AND is_deleted = false " +
+                    "    GROUP BY invoice_date " +
+                    ") sales ON all_dates.Date = sales.invoice_date " +
+                    "LEFT JOIN ( " +
+                    "    SELECT CAST(created_at AS DATE) as pay_date, " +
+                    "           SUM(CASE WHEN UPPER(payment_method) = 'CASH' THEN amount ELSE 0 END) as cash, " +
+                    "           SUM(CASE WHEN UPPER(payment_method) = 'CHEQUE' THEN amount ELSE 0 END) as cheque " +
+                    "    FROM sales_order_payments WHERE is_deleted = false " +
+                    "    GROUP BY CAST(created_at AS DATE) " +
+                    ") collections ON all_dates.Date = collections.pay_date " +
+                    "LEFT JOIN ( " +
+                    "    SELECT CAST(created_at AS DATE) as exp_date, SUM(amount) as total_expenses " +
+                    "    FROM grn_payments WHERE is_deleted = false " +
+                    "    GROUP BY CAST(created_at AS DATE) " +
+                    ") expenses ON all_dates.Date = expenses.exp_date " +
+                    "ORDER BY all_dates.Date ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getMonthlyBusinessSummary(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     // 4.5: Top Customers Report (By Revenue)
     @Query(value = "SELECT c.name as Customer_Name, SUM(so.grand_total) as Total_Spent, COUNT(so.id) as Order_Count " +
@@ -252,39 +265,32 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     // Note: NetSales logic usually subtracts discounts from Gross.
     @Query(value =
             "SELECT " +
-                    "COUNT(CASE WHEN UPPER(status) IN ('APPROVED','PENDING') THEN 1 END) AS Total_Invoices, " +
-
-                    "COALESCE(SUM( " +
-                    "   COALESCE(grand_total, 0) - " +
-                    "   CASE " +
-                    "       WHEN UPPER(additional_discount_type) = 'PERCENTAGE' " +
-                    "           THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
-                    "       ELSE COALESCE(additional_discount, 0) " +
-                    "   END " +
-                    "   + COALESCE(courier_charges, 0) " +
-                    "   - COALESCE(return_credits, 0) " +
-                    "), 0) AS Gross_Sales, " +
-
-                    "COALESCE(SUM( " +
-                    "   CASE WHEN UPPER(status) = 'APPROVED' THEN " +
-                    "       (COALESCE(grand_total, 0) - " +
-                    "           CASE " +
-                    "               WHEN UPPER(additional_discount_type) = 'PERCENTAGE' " +
-                    "                   THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
-                    "               ELSE COALESCE(additional_discount, 0) " +
-                    "           END " +
-                    "        + COALESCE(courier_charges, 0) " +
-                    "        - COALESCE(return_credits, 0) " +
-                    "       ) " +
-                    "   ELSE 0 END " +
-                    "), 0) AS Net_Sales " +
-
-                    "FROM sales_orders " +
-                    "WHERE is_deleted = false " +
-                    "AND (status IS NULL OR UPPER(status) IN ('APPROVED', 'PENDING')) " +  // <-- FIXED SPACE
-                    "AND invoice_date BETWEEN :start AND :end",
-            nativeQuery = true
-    )
+                    "  (SELECT COALESCE(SUM( " +
+                    "      COALESCE(grand_total, 0) - " +
+                    "      CASE " +
+                    "          WHEN UPPER(additional_discount_type) = 'PERCENTAGE' " +
+                    "          THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
+                    "          ELSE COALESCE(additional_discount, 0) " +
+                    "      END " +
+                    "      + COALESCE(courier_charges, 0) " +
+                    "      - COALESCE(return_credits, 0)), 0) " +
+                    "   FROM sales_orders " +
+                    "   WHERE invoice_date BETWEEN :start AND :end " +
+                    "   AND status = 'Approved' AND is_deleted = false) as approvedSales, " +
+                    "  " +
+                    "  (SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments " +
+                    "   WHERE CAST(created_at AS DATE) BETWEEN :start AND :end " +
+                    "   AND UPPER(payment_method) = 'CASH' AND is_deleted = false) as cashIncome, " +
+                    "  " +
+                    "  (SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments " +
+                    "   WHERE CAST(created_at AS DATE) BETWEEN :start AND :end " +
+                    "   AND UPPER(payment_method) = 'CHEQUE' AND is_deleted = false) as chequeIncome, " +
+                    "  " +
+                    "  (SELECT COALESCE(SUM(amount), 0) FROM grn_payments " +
+                    "   WHERE CAST(created_at AS DATE) BETWEEN :start AND :end " +
+                    "   AND is_deleted = false) as totalExpenses " +
+                    "FROM (SELECT 1) as dummy",
+            nativeQuery = true)
     Map<String, Object> getSalesSummary(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
     // 4.2 Customer Balance Report (Overall view of what is owed)
@@ -525,7 +531,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
                     "FROM grn g " +
                     "JOIN suppliers s ON g.supplier_id = s.id " +
                     "WHERE g.grn_date BETWEEN :start AND :end " +
-                    "AND g.is_deleted = false" +
+                    "AND g.is_deleted = false " +
                     "ORDER BY g.grn_date ASC, s.name ASC",
             nativeQuery = true)
     List<Map<String, Object>> getSuppliersGRNReport(@Param("start") LocalDate start, @Param("end") LocalDate end);
