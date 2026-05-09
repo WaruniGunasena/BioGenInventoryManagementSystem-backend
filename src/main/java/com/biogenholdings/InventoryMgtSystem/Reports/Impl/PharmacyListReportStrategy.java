@@ -29,4 +29,10 @@ public class PharmacyListReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+
+        return List.of("Reg_Id","Pharmacy_Name","Address","Contact","Email","Credit_Limit");
+    }
 }

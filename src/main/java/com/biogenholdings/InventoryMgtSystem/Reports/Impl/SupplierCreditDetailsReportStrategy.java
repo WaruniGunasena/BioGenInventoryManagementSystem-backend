@@ -10,38 +10,44 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class TopCustomersReportStrategy implements ReportStrategy {
+public class SupplierCreditDetailsReportStrategy implements ReportStrategy {
 
-
-    final private ReportRepository reportRepo;
+    private final ReportRepository reportRepository;
 
     @Override
     public String getReportIdentifier() {
-       return "TOP_CUSTOMER_LIST";
+        return "SUPPLIER_CREDIT_SUMMARY";
     }
 
     @Override
     public String getReportName() {
-        return "Top Customer List";
+        return "Supplier-wise Credit Details Summary Report";
     }
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
-        return reportRepo.getTopCustomers();
+        // This report filters by supplierId rather than a date range
+        Long supplierId = Long.parseLong(params.get("supplierId"));
+        return reportRepository.getSupplierCreditDetails(supplierId);
     }
 
     @Override
     public String getOrientation(List<Map<String, Object>> data) {
         if (data == null || data.isEmpty()) return "portrait";
 
+        // With 6 columns, portrait usually fits, but we follow your logic
         int columnCount = data.getFirst().size();
-
         return columnCount > 6 ? "landscape" : "portrait";
     }
 
     @Override
     public List<String> getColumnOrder() {
+        // These match the Aliases in the native SQL query
+        return List.of("Date", "Invoice_No", "Amount", "Paid_Amount", "Balance", "Age_Days");
+    }
 
-        return List.of("Customer_Name","Order_Count","Total_Spent");
+    @Override
+    public Boolean addGrandTotal(){
+        return Boolean.TRUE;
     }
 }

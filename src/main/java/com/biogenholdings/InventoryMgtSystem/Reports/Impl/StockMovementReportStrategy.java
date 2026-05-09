@@ -20,7 +20,7 @@ public class StockMovementReportStrategy implements ReportStrategy {
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
         LocalDate start = LocalDate.parse(params.get("startDate"));
         LocalDate end = LocalDate.parse(params.get("endDate"));
-        return reportRepo.getStockMovement(start.atStartOfDay(), end.atTime(23, 59, 59));
+        return reportRepo.getStockMovementLog(start.atStartOfDay(), end.atTime(23, 59, 59));
     }
 
     @Override
@@ -30,5 +30,10 @@ public class StockMovementReportStrategy implements ReportStrategy {
         int columnCount = data.getFirst().size();
 
         return columnCount > 6 ? "landscape" : "portrait";
+    }
+
+    @Override
+    public List<String> getColumnOrder() {
+        return List.of("Item_Code", "Product_Name", "QTY_IN", "QTY_OUT", "BALANCE");
     }
 }

@@ -28,4 +28,9 @@ public class OutstandingReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+        return List.of("Date","Invoice_No","Pharmacy","Bill_Amount","Outstanding","Paid_Amount");
+    }
 }
