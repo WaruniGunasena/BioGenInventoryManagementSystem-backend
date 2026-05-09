@@ -29,4 +29,10 @@ public class LowStockReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+
+        return List.of("Item_Code","Product_Name","Current_Stock");
+    }
 }

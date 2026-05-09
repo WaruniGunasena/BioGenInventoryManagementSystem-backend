@@ -10,14 +10,15 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class BatchStockReportStrategy implements ReportStrategy {
+public class StockValueReportStrategy implements ReportStrategy {
+
     final private ReportRepository reportRepo;
-    @Override public String getReportIdentifier() { return "BATCH_STOCK"; }
-    @Override public String getReportName() { return "Batch-wise Inventory Breakdown"; }
+    @Override public String getReportIdentifier() { return "STOCK_VALUE"; }
+    @Override public String getReportName() { return "Inventory Stock Value Report"; }
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
-        return reportRepo.getBatchWiseStock();
+        return reportRepo.getStockValueReport();
     }
 
     @Override
@@ -31,8 +32,11 @@ public class BatchStockReportStrategy implements ReportStrategy {
 
     @Override
     public List<String> getColumnOrder() {
-
-        return List.of("Item_Code","Product_Name","Batch_No","Qty_In_Batch","Expiry");
+        return List.of("Item_Code", "Product_Name", "Unit", "Available_Quantity", "Purchase_Price", "Total_Amount");
     }
 
+    @Override
+    public Boolean addGrandTotal(){
+        return Boolean.TRUE;
+    }
 }

@@ -5,19 +5,25 @@ import com.biogenholdings.InventoryMgtSystem.repositories.ReportRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class BatchStockReportStrategy implements ReportStrategy {
-    final private ReportRepository reportRepo;
-    @Override public String getReportIdentifier() { return "BATCH_STOCK"; }
-    @Override public String getReportName() { return "Batch-wise Inventory Breakdown"; }
+public class SuppliersGRNReportStrategy implements ReportStrategy {
+
+    final private ReportRepository reportRepository;
+
+    @Override public String getReportIdentifier() { return "SUPPLIER_GRN"; }
+    @Override public String getReportName() { return "Supplier GRN Report"; }
 
     @Override
     public List<Map<String, Object>> getReportData(Map<String, String> params) {
-        return reportRepo.getBatchWiseStock();
+        LocalDate start = LocalDate.parse(params.get("start"));
+        LocalDate end = LocalDate.parse(params.get("end"));
+
+        return reportRepository.getSuppliersGRNReport(start, end);
     }
 
     @Override
@@ -31,8 +37,13 @@ public class BatchStockReportStrategy implements ReportStrategy {
 
     @Override
     public List<String> getColumnOrder() {
+        // Must match the Aliases in the SQL Query
+        return List.of("Date", "Supplier_Name", "Invoice_No", "Invoice_Amount");
+    }
 
-        return List.of("Item_Code","Product_Name","Batch_No","Qty_In_Batch","Expiry");
+    @Override
+    public Boolean addGrandTotal(){
+        return Boolean.TRUE;
     }
 
 }

@@ -53,8 +53,39 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "FROM (SELECT 1) as dummy", nativeQuery = true)
     Map<String, Object> getFullDailyBusinessSummary(@Param("date") LocalDate date);
 
+    @Query(value = "SELECT " +
+            // 1. Approved Sales (Net Revenue)
+            "(SELECT COALESCE(SUM(" +
+            "    COALESCE(grand_total, 0) - " +
+            "    CASE " +
+            "        WHEN UPPER(additional_discount_type) = 'PERCENTAGE' " +
+            "        THEN (COALESCE(grand_total, 0) * COALESCE(additional_discount, 0) / 100) " +
+            "        ELSE COALESCE(additional_discount, 0) " +
+            "    END " +
+            "    + COALESCE(courier_charges, 0) " +
+            "    - COALESCE(return_credits, 0)" +
+            "), 0), invoice_date as Date FROM sales_orders " +
+            " WHERE invoice_date BETWEEN :startDate AND :endDate " +
+            " AND status = 'Approved' AND is_deleted = false) as approvedSales, " +
+
+            // 2. Income Breakdown (Cash vs Cheque Collections)
+            "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments " +
+            " WHERE CAST(created_at AS DATE) BETWEEN :startDate AND :endDate " +
+            " AND UPPER(payment_method) = 'CASH' AND is_deleted = false) as cashIncome, " +
+
+            "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments " +
+            " WHERE CAST(created_at AS DATE) BETWEEN :startDate AND :endDate " +
+            " AND UPPER(payment_method) = 'CHEQUE' AND is_deleted = false) as chequeIncome, " +
+
+            // 3. Expenses (GRN Payments)
+            "(SELECT COALESCE(SUM(amount), 0) FROM grn_payments " +
+            " WHERE CAST(created_at AS DATE) BETWEEN :startDate AND :endDate " +
+            " AND is_deleted = false) as totalExpenses " +
+            "FROM (SELECT 1) as dummy", nativeQuery = true)
+    Map<String, Object> getBusinessSummaryByRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
     // 4.5: Top Customers Report (By Revenue)
-    @Query(value = "SELECT c.name as customerName, SUM(so.grand_total) as totalSpent, COUNT(so.id) as orderCount " +
+    @Query(value = "SELECT c.name as Customer_Name, SUM(so.grand_total) as Total_Spent, COUNT(so.id) as Order_Count " +
             "FROM sales_orders so " +
             "JOIN customers c ON so.customer_id = c.id " +
             "WHERE so.is_deleted = false AND UPPER(so.status) = 'APPROVED' " +
@@ -62,7 +93,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getTopCustomers();
 
     // 5.2: Low Stock Report
-    @Query(value = "SELECT p.name, p.item_code as itemCode, ps.total_quantity as currentStock, p.reorder_level as reorderLevel " +
+    @Query(value = "SELECT p.name as product_name, p.item_code as item_Code, ps.total_quantity as current_Stock, p.reorder_level as reorderLevel " +
             "FROM product_stock ps " +
             "JOIN products p ON ps.product_id = p.id " +
             "WHERE ps.total_quantity <= p.reorder_level AND p.is_deleted = false", nativeQuery = true)
@@ -96,8 +127,8 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getExpiryReport(@Param("thresholdDate") LocalDate thresholdDate);
 
     // 4.1: Pharmacy (Customer) List Report
-    @Query(value = "SELECT name as PharmacyName, email as Email, contact_no as Contact, " +
-            "address as Address, credit_limit as CreditLimit " +
+    @Query(value = "SELECT name as Pharmacy_Name, email as Email, contact_no as Contact, " +
+            "address as Address, credit_limit as Credit_Limit, id as Reg_Id " +
             "FROM customers WHERE is_deleted = false", nativeQuery = true)
     List<Map<String, Object>> getPharmacyList();
 
@@ -168,17 +199,26 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "ORDER BY so.invoice_number ASC", nativeQuery = true)
     List<Map<String, Object>> getInvoiceWiseSales(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
-    // 3.4 Product-wise Sales (Lists every Product sold)
-    @Query(value = "SELECT p.name as Product_Name, p.item_code as Item_Code, " +
-            "SUM(soi.quantity - soi.return_qty) as Total_Qty, SUM(soi.total_amount - (soi.return_qty * soi.selling_price)) as Total_Amount " +
+    @Query(value = "SELECT p.name AS Product_Name, p.item_code AS Item_Code, " +
+            "SUM(COALESCE(soi.quantity, 0) - COALESCE(soi.return_qty, 0)) AS Total_Qty, " +
+            "SUM((COALESCE(soi.quantity, 0) - COALESCE(soi.return_qty, 0)) * " +
+            "COALESCE(CASE " +
+            "    WHEN soi.discounted_price IS NOT NULL AND soi.discounted_price > 0 " +
+            "    THEN soi.discounted_price " +
+            "    ELSE soi.selling_price " +
+            "END, 0)) AS Total_Amount " +
             "FROM sales_order_items soi " +
             "JOIN products p ON soi.product_id = p.id " +
             "JOIN sales_orders so ON soi.sales_order_id = so.id " +
-            "WHERE UPPER(so.status) = 'APPROVED' AND so.is_deleted = false " +
+            "WHERE UPPER(so.status) = 'APPROVED' " +
+            "AND so.is_deleted = false " +
             "AND so.invoice_date BETWEEN :start AND :end " +
             "GROUP BY p.id, p.name, p.item_code " +
-            "ORDER BY p.name ASC", nativeQuery = true)
-    List<Map<String, Object>> getProductWiseSales(@Param("start") LocalDate start, @Param("end") LocalDate end);
+            "ORDER BY p.name ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getProductWiseSales(
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end);
 
     // 3.5 Customer-wise Sales (Lists every Customer who bought)
     @Query(value = "SELECT " +
@@ -264,10 +304,10 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getCustomerBalanceReport();
 
     // 4.3 Outstanding Report (Specific Invoices not fully paid)
-    @Query(value = "SELECT so.invoice_number as Invoice, c.name as Pharmacy, " +
-            "so.invoice_date as Date, so.grand_total as BillAmount, " +
+    @Query(value = "SELECT so.invoice_number as Invoice_No, c.name as Pharmacy, " +
+            "so.invoice_date as Date, so.grand_total as Bill_Amount, " +
             "(SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments sop " +
-            " WHERE sop.sales_order_id = so.id AND sop.is_deleted = false) as PaidAmount, " +
+            " WHERE sop.sales_order_id = so.id AND sop.is_deleted = false) as Paid_Amount, " +
             "(so.grand_total - (SELECT COALESCE(SUM(amount), 0) FROM sales_order_payments sop " +
             " WHERE sop.sales_order_id = so.id AND sop.is_deleted = false)) as Outstanding " +
             "FROM sales_orders so " +
@@ -298,8 +338,8 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getStockStatusReport(@Param("onlyOutOfStock") boolean onlyOutOfStock);
 
     // 5.4, 5.5 Expiry Reports (Dynamic month range)
-    @Query(value = "SELECT p.name as Product, gi.batch_number as Batch, " +
-            "gi.exp_date as ExpiryDate, gi.quantity as BatchQty " +
+    @Query(value = "SELECT p.name as Product_Name, p.item_code as Item_Code, gi.batch_number as Batch_No, " +
+            "gi.exp_date as Expiry_Date, gi.quantity as Qty_In_Batch " +
             "FROM grn_items gi JOIN products p ON gi.product_id = p.id " +
             "WHERE gi.is_deleted = false AND gi.quantity > 0 " +
             "AND gi.exp_date <= DATE_ADD(CURRENT_DATE, INTERVAL :months MONTH) " +
@@ -307,24 +347,131 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     List<Map<String, Object>> getExpiryReport(@Param("months") int months);
 
     // 5.6 Batch-wise Stock Report
-    @Query(value = "SELECT p.name as Product, gi.batch_number as Batch, " +
-            "gi.quantity as QtyInBatch, gi.exp_date as Expiry " +
+    @Query(value = "SELECT p.name as Product_Name,p.item_code as Item_code, gi.batch_number as Batch_No, " +
+            "gi.quantity as Qty_In_Batch, gi.exp_date as Expiry " +
             "FROM grn_items gi JOIN products p ON gi.product_id = p.id " +
             "WHERE gi.quantity > 0 AND p.is_deleted = false " +
             "ORDER BY p.name ASC, gi.exp_date ASC", nativeQuery = true)
     List<Map<String, Object>> getBatchWiseStock();
 
-    // 5.7 Stock Movement (Simplified: IN from GRN, OUT from Sales)
-    // Note: This is a complex union query for the movement log
-    @Query(value = "(SELECT 'IN' as Type, CAST(gi.created_at AS DATE) as Date, p.name as Product, gi.quantity as Qty " +
-            " FROM grn_items gi JOIN products p ON gi.product_id = p.id WHERE gi.created_at BETWEEN :start AND :end) " +
-            "UNION ALL " +
-            "(SELECT 'OUT' as Type, CAST(so.created_at AS DATE) as Date, p.name as Product, soi.quantity as Qty " +
-            " FROM sales_order_items soi JOIN products p ON soi.product_id = p.id " +
-            " JOIN sales_orders so ON soi.sales_order_id = so.id WHERE so.status = 'Approved' AND so.created_at BETWEEN :start AND :end) " +
-            "ORDER BY Date DESC", nativeQuery = true)
-    List<Map<String, Object>> getStockMovement(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    // stock value report
 
+    @Query(value =
+            "SELECT " +
+                    "    p.item_code AS Item_Code, " +
+                    "    p.name AS Product_Name, " +
+                    "    p.unit AS Unit, " +
+                    "    CAST(ps.total_quantity AS SIGNED) AS Available_Quantity, " +
+                    "    gi_latest.purchase_price AS Purchase_Price, " +
+                    "    (ps.total_quantity * gi_latest.purchase_price) AS Total_Amount " +
+                    "FROM products p " +
+                    "JOIN product_stock ps ON p.id = ps.product_id " +
+                    "JOIN ( " +
+                    "    /* Subquery to find the latest GRN Item for every product */ " +
+                    "    SELECT gi1.product_id, gi1.purchase_price " +
+                    "    FROM grn_items gi1 " +
+                    "    WHERE gi1.id = ( " +
+                    "        SELECT MAX(gi2.id) " +
+                    "        FROM grn_items gi2 " +
+                    "        WHERE gi2.product_id = gi1.product_id AND gi2.is_deleted = false " +
+                    "    ) " +
+                    ") gi_latest ON p.id = gi_latest.product_id " +
+                    "WHERE ps.total_quantity > 0 " +
+                    "ORDER BY p.item_code ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getStockValueReport();
+
+    // 5.7 Stock Movement (Simplified: IN from GRN, OUT from Sales)
+    @Query(value =
+            "SELECT " +
+                    "    p.item_code AS Item_Code, " +
+                    "    p.name AS Product_Name, " +
+                    "    CAST(COALESCE(SUM(m.qty_in), 0) AS SIGNED) AS QTY_IN, " +
+                    "    CAST(COALESCE(SUM(m.qty_out), 0) AS SIGNED) AS QTY_OUT, " +
+                    "    /* Pulling directly from the stock table 'total_quantity' column */ " +
+                    "    CAST(COALESCE(ps.total_quantity, 0) AS SIGNED) AS BALANCE " +
+                    "FROM products p " +
+                    "/* Join with the Product Stock table to get actual current balance */ " +
+                    "LEFT JOIN product_stock ps ON p.id = ps.product_id " +
+                    "LEFT JOIN ( " +
+                    "    /* Stock In from GRNs */ " +
+                    "    SELECT product_id, quantity AS qty_in, 0 AS qty_out " +
+                    "    FROM grn_items gi " +
+                    "    JOIN grn g ON gi.grn_id = g.id " +
+                    "    WHERE g.grn_date BETWEEN :start AND :end " +
+                    "    AND g.is_deleted = false " +
+                    " " +
+                    "    UNION ALL " +
+                    " " +
+                    "    /* Stock Out from Sales Orders */ " +
+                    "    SELECT product_id, 0 AS qty_in, quantity AS qty_out " +
+                    "    FROM sales_order_items soi " +
+                    "    JOIN sales_orders so ON soi.sales_order_id = so.id " +
+                    "    WHERE so.invoice_date BETWEEN :start AND :end " +
+                    "    AND so.status = 'APPROVED' " +
+                    "    AND so.is_deleted = false " +
+                    ") m ON p.id = m.product_id " +
+                    "GROUP BY p.id, p.item_code, p.name, ps.total_quantity " +
+                    "ORDER BY p.item_code ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getStockMovementLog(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query(value =
+            "SELECT " +
+                    "    cd.Date, " +
+                    "    cd.Item_code, " +
+                    "    cd.Product_Name, " +
+                    "    cd.TYPE, " +
+                    "    cd.REF_NO_GRN_NO, " +
+                    "    cd.QTY_IN, " +
+                    "    cd.QTY_OUT, " +
+                    "    CAST(COALESCE(ps.total_quantity, 0) AS SIGNED) AS BALANCE " +
+                    "FROM ( " +
+                    "    /* Individual Stock IN transactions */ " +
+                    "    SELECT " +
+                    "        g.grn_date AS Date, " +
+                    "        p.item_code AS Item_code, " +
+                    "        p.name AS Product_Name, " +
+                    "        'IN' AS TYPE, " +
+                    "        g.grn_number AS REF_NO_GRN_NO, " +
+                    "        CAST(gi.quantity AS SIGNED) AS QTY_IN, " +
+                    "        0 AS QTY_OUT, " +
+                    "        p.id AS product_id " +
+                    "    FROM grn_items gi " +
+                    "    JOIN grn g ON gi.grn_id = g.id " +
+                    "    JOIN products p ON gi.product_id = p.id " +
+                    "    WHERE g.grn_date BETWEEN :start AND :end " +
+                    "    AND p.id = :productId " + // Added Product Filter
+                    "    AND g.is_deleted = false " +
+                    " " +
+                    "    UNION ALL " +
+                    " " +
+                    "    /* Individual Stock OUT transactions */ " +
+                    "    SELECT " +
+                    "        so.invoice_date AS Date, " +
+                    "        p.item_code AS Item_code, " +
+                    "        p.name AS Product_Name, " +
+                    "        'OUT' AS TYPE, " +
+                    "        so.invoice_number AS REF_NO_GRN_NO, " +
+                    "        0 AS QTY_IN, " +
+                    "        CAST(soi.quantity AS SIGNED) AS QTY_OUT, " +
+                    "        p.id AS product_id " +
+                    "    FROM sales_order_items soi " +
+                    "    JOIN sales_orders so ON soi.sales_order_id = so.id " +
+                    "    JOIN products p ON soi.product_id = p.id " +
+                    "    WHERE so.invoice_date BETWEEN :start AND :end " +
+                    "    AND p.id = :productId " + // Added Product Filter
+                    "    AND so.status = 'APPROVED' " +
+                    "    AND so.is_deleted = false " +
+                    ") cd " +
+                    "LEFT JOIN product_stock ps ON cd.product_id = ps.product_id " +
+                    "ORDER BY cd.Date ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getProductWiseMovementLogWithLiveBalance(
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
+            @Param("productId") Long productId // Ensure parameter matches :productId
+    );
     // 6.1 & 6.5 Purchase / GRN Report (List of all stock arrivals)
     @Query(value = "SELECT g.grn_number as GRN, s.name as Supplier, " +
             "g.received_date as Date, g.grand_total as BillAmount " +
@@ -366,6 +513,47 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "WHERE gp.is_deleted = false AND gp.created_at BETWEEN :start AND :end " +
             "ORDER BY gp.created_at DESC", nativeQuery = true)
     List<Map<String, Object>> getSupplierPaymentLog(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Supplier GRN Report
+
+    @Query(value =
+            "SELECT " +
+                    "    g.grn_date AS Date, " +
+                    "    s.name AS Supplier_Name, " +
+                    "    g.invoice_number AS Invoice_No, " +
+                    "    g.grand_total AS Invoice_Amount " +
+                    "FROM grn g " +
+                    "JOIN suppliers s ON g.supplier_id = s.id " +
+                    "WHERE g.grn_date BETWEEN :start AND :end " +
+                    "AND g.is_deleted = false" +
+                    "ORDER BY g.grn_date ASC, s.name ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getSuppliersGRNReport(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    // GRN
+
+    @Query(value =
+            "SELECT " +
+                    "    g.grn_date AS Date, " +
+                    "    g.grn_number AS Invoice_No, " +
+                    "    g.grand_total AS Amount, " +
+                    "    COALESCE(p_sum.paid_total, 0) AS Paid_Amount, " +
+                    "    (g.grand_total - COALESCE(p_sum.paid_total, 0)) AS Balance, " +
+                    "    CONCAT(DATEDIFF(CURRENT_DATE, g.grn_date), ' Days') AS Age_Days " +
+                    "FROM grn g " +
+                    "LEFT JOIN ( " +
+                    "    /* Subquery to sum payments per GRN */ " +
+                    "    SELECT grn_id, SUM(amount) AS paid_total " +
+                    "    FROM grn_payments " +
+                    "    WHERE is_deleted = false " +
+                    "    GROUP BY grn_id " +
+                    ") p_sum ON g.id = p_sum.grn_id " +
+                    "WHERE g.supplier_id = :supplierId " +
+                    "AND g.is_deleted = false " +
+                    "AND (g.grand_total - COALESCE(p_sum.paid_total, 0)) > 0 " + // Only show credits
+                    "ORDER BY g.grn_date ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getSupplierCreditDetails(@Param("supplierId") Long supplierId);
 
     // 7.2 Expense Report (All payments to suppliers)
     @Query(value = "SELECT gp.created_at as Date, s.name as Supplier, gp.payment_method as Method, " +
