@@ -514,6 +514,47 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "ORDER BY gp.created_at DESC", nativeQuery = true)
     List<Map<String, Object>> getSupplierPaymentLog(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+    // Supplier GRN Report
+
+    @Query(value =
+            "SELECT " +
+                    "    g.grn_date AS Date, " +
+                    "    s.name AS Supplier_Name, " +
+                    "    g.invoice_number AS Invoice_No, " +
+                    "    g.grand_total AS Invoice_Amount " +
+                    "FROM grn g " +
+                    "JOIN suppliers s ON g.supplier_id = s.id " +
+                    "WHERE g.grn_date BETWEEN :start AND :end " +
+                    "AND g.is_deleted = false" +
+                    "ORDER BY g.grn_date ASC, s.name ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getSuppliersGRNReport(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    // GRN
+
+    @Query(value =
+            "SELECT " +
+                    "    g.grn_date AS Date, " +
+                    "    g.grn_number AS Invoice_No, " +
+                    "    g.grand_total AS Amount, " +
+                    "    COALESCE(p_sum.paid_total, 0) AS Paid_Amount, " +
+                    "    (g.grand_total - COALESCE(p_sum.paid_total, 0)) AS Balance, " +
+                    "    CONCAT(DATEDIFF(CURRENT_DATE, g.grn_date), ' Days') AS Age_Days " +
+                    "FROM grn g " +
+                    "LEFT JOIN ( " +
+                    "    /* Subquery to sum payments per GRN */ " +
+                    "    SELECT grn_id, SUM(amount) AS paid_total " +
+                    "    FROM grn_payments " +
+                    "    WHERE is_deleted = false " +
+                    "    GROUP BY grn_id " +
+                    ") p_sum ON g.id = p_sum.grn_id " +
+                    "WHERE g.supplier_id = :supplierId " +
+                    "AND g.is_deleted = false " +
+                    "AND (g.grand_total - COALESCE(p_sum.paid_total, 0)) > 0 " + // Only show credits
+                    "ORDER BY g.grn_date ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getSupplierCreditDetails(@Param("supplierId") Long supplierId);
+
     // 7.2 Expense Report (All payments to suppliers)
     @Query(value = "SELECT gp.created_at as Date, s.name as Supplier, gp.payment_method as Method, " +
             "gp.amount as Amount, " +
