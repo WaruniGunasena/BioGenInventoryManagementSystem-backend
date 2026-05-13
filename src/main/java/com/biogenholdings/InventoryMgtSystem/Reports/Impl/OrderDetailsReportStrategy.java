@@ -41,4 +41,10 @@ public class OrderDetailsReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+
+        return List.of("Product","Qty","Price","SubTotal");
+    }
 }

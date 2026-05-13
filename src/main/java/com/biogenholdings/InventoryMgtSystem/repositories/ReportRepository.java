@@ -102,7 +102,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "FROM sales_orders so " +
             "JOIN customers c ON so.customer_id = c.id " +
             "WHERE so.is_deleted = false AND UPPER(so.status) = 'APPROVED' " +
-            "GROUP BY c.id ORDER BY totalSpent DESC LIMIT 10", nativeQuery = true)
+            "GROUP BY c.id ORDER BY total_Spent DESC LIMIT 10", nativeQuery = true)
     List<Map<String, Object>> getTopCustomers();
 
     // 5.2: Low Stock Report
@@ -295,18 +295,18 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
 
     // 4.2 Customer Balance Report (Overall view of what is owed)
     @Query(value = "SELECT c.name as Pharmacy, c.contact_no as Contact, " +
-            "SUM(so.grand_total) as TotalInvoiced, " +
+            "SUM(so.grand_total) as Total_Invoiced, " +
             "(SELECT COALESCE(SUM(sop.amount), 0) FROM sales_order_payments sop " +
             " JOIN sales_orders so2 ON sop.sales_order_id = so2.id " +
-            " WHERE so2.customer_id = c.id AND sop.is_deleted = false) as TotalPaid, " +
+            " WHERE so2.customer_id = c.id AND sop.is_deleted = false) as Total_Paid, " +
             "(SUM(so.grand_total) - (SELECT COALESCE(SUM(sop.amount), 0) FROM sales_order_payments sop " +
             " JOIN sales_orders so2 ON sop.sales_order_id = so2.id " +
-            " WHERE so2.customer_id = c.id AND sop.is_deleted = false)) as CreditBalance " +
+            " WHERE so2.customer_id = c.id AND sop.is_deleted = false)) as Credit_Balance " +
             "FROM customers c " +
             "JOIN sales_orders so ON c.id = so.customer_id " +
             "WHERE c.is_deleted = false AND so.is_deleted = false " +
-            "GROUP BY c.id HAVING CreditBalance > 0 " +
-            "ORDER BY CreditBalance DESC", nativeQuery = true)
+            "GROUP BY c.id HAVING Credit_Balance > 0 " +
+            "ORDER BY Credit_Balance DESC", nativeQuery = true)
     List<Map<String, Object>> getCustomerBalanceReport();
 
     // 4.3 Outstanding Report (Specific Invoices not fully paid)
@@ -325,8 +325,8 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
 
     // 4.4 Payment History (Log of all customer payments)
     @Query(value = "SELECT sop.created_at as Date, c.name as Pharmacy, " +
-            "so.invoice_number as RefInvoice, sop.payment_method as Method, " +
-            "sop.amount as PaidAmount, sop.bank as Bank " +
+            "so.invoice_number as Ref_Invoice, sop.payment_method as Method, " +
+            "sop.amount as Paid_Amount, sop.bank as Bank " +
             "FROM sales_order_payments sop " +
             "JOIN sales_orders so ON sop.sales_order_id = so.id " +
             "JOIN customers c ON so.customer_id = c.id " +
@@ -386,6 +386,33 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
                     "ORDER BY p.item_code ASC",
             nativeQuery = true)
     List<Map<String, Object>> getStockValueReport();
+
+    @Query(value = "SELECT " +
+            /* 1. Customer Pending Cheque */
+            " (SELECT COALESCE(SUM(sop.amount), 0) " +
+            "  FROM sales_order_payments sop " +
+            "  JOIN sales_orders so ON sop.sales_order_id = so.id " +
+            "  WHERE UPPER(sop.payment_method) = 'CHEQUE' " +
+            "  AND so.status = 'PENDING' " +
+            "  AND sop.is_deleted = false AND so.is_deleted = false) as customerPendingCheque, " +
+
+            /* 2. Customer Pending Invoice */
+            " (SELECT COALESCE(SUM(so.grand_total - COALESCE((SELECT SUM(sop2.amount) FROM sales_order_payments sop2 " +
+            "    WHERE sop2.sales_order_id = so.id AND sop2.is_deleted = false), 0)), 0) " +
+            "  FROM sales_orders so WHERE so.status = 'APPROVED' AND so.is_deleted = false) as customerPendingInvoice, " +
+
+            /* 3. Supplier Pending Value */
+            " (SELECT COALESCE(SUM(g.grand_total - COALESCE((SELECT SUM(gp.amount) FROM grn_payments gp " +
+            "    WHERE gp.grn_id = g.id AND gp.is_deleted = false), 0)), 0) " +
+            "  FROM grn g WHERE g.is_deleted = false) as supplierPendingValue, " +
+
+            /* 4. Sales Rep Commission - FIXED: Wrapped in parentheses and removed extra SELECT/FROM */
+            " (SELECT COALESCE(SUM(total_commission), 0) " +
+            "  FROM sales_commission_summary) as salesRepCommission " +
+
+            "FROM (SELECT 1) as dummy",
+            nativeQuery = true)
+    Map<String, Object> getFinancialOverviewMetrics();
 
     // 5.7 Stock Movement (Simplified: IN from GRN, OUT from Sales)
     @Query(value =
@@ -563,7 +590,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
 
     // 7.2 Expense Report (All payments to suppliers)
     @Query(value = "SELECT gp.created_at as Date, s.name as Supplier, gp.payment_method as Method, " +
-            "gp.amount as Amount, " +
+            "gp.amount as Amount " +
             "FROM grn_payments gp JOIN grn g ON gp.grn_id = g.id " +
             "JOIN suppliers s ON g.supplier_id = s.id " +
             "WHERE gp.is_deleted = false AND gp.created_at BETWEEN :start AND :end", nativeQuery = true)
@@ -576,7 +603,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     BigDecimal getOpeningBalance(@Param("start") LocalDateTime start);
 
     // 8.1 Sales Return Report (All approved returns)
-    @Query(value = "SELECT pr.return_number as ReturnNo, so.invoice_number as RefInvoice, " +
+    @Query(value = "SELECT pr.return_number as Return_No, so.invoice_number as Invoice_No, " +
             "c.name as Customer, pr.return_date as Date, pr.total_return_amount as Amount " +
             "FROM product_returns pr " +
             "JOIN sales_orders so ON pr.sales_order_id = so.id " +
@@ -589,7 +616,7 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
     // 8.3 & 8.4 Damaged/Expired Items Report
     // Logic: Items where is_reusable = false (Discarded items)
     @Query(value = "SELECT pr.return_date as Date, p.name as Product, " +
-            "pri.quantity as Qty, pri.return_reason as Reason, pri.sub_total as LossAmount " +
+            "pri.quantity as Qty, pri.return_reason as Reason, pri.sub_total as Amount " +
             "FROM product_return_items pri " +
             "JOIN product_returns pr ON pri.product_return_id = pr.id " +
             "JOIN products p ON pri.product_id = p.id " +

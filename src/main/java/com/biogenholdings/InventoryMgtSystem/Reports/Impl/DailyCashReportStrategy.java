@@ -49,4 +49,10 @@ public class DailyCashReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+
+        return List.of("Date","Today's_Inflow","Today's_Outflow","Opening_Balance","Closing_Balance");
+    }
 }

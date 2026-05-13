@@ -29,4 +29,10 @@ public class CustomerBalanceReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+
+        return List.of("Pharmacy","Contact","Credit_Balance","Total_Invoiced","Total_Paid");
+    }
 }

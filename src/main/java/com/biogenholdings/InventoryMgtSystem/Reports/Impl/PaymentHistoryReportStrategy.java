@@ -33,4 +33,9 @@ public class PaymentHistoryReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+        return List.of("Date","Pharmacy","Ref_Invoice","Method","Bank","Paid_Amount");
+    }
 }
