@@ -47,4 +47,10 @@ public class ExpenseReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+
+        return List.of("Date","Supplier","Method","Amount");
+    }
 }

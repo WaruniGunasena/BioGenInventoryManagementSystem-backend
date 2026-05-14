@@ -32,4 +32,9 @@ public class DamagedItemsReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+        return List.of("Date", "Product", "Qty", "Amount", "Reason");
+    }
 }

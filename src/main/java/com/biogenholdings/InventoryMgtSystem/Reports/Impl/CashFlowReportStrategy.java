@@ -60,4 +60,10 @@ public class CashFlowReportStrategy implements ReportStrategy {
 
         return columnCount > 6 ? "landscape" : "portrait";
     }
+
+    @Override
+    public List<String> getColumnOrder() {
+
+        return List.of("Date","Entity","Ref","Type","Amount");
+    }
 }
