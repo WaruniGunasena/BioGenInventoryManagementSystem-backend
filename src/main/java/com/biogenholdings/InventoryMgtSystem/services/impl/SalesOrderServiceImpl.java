@@ -503,76 +503,187 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
     @Override
+    @Transactional
     public Response createSalesOrderPayment(SalesOrderPaymentDTO dto) {
         try {
+            // 1. Fetch the Sales Order
             SalesOrder order = salesOrderRepository.findById(dto.getSalesOrderId())
                     .orElseThrow(() -> new NotFoundException("Sales Order not found with ID: " + dto.getSalesOrderId()));
 
+            // 2. Map DTO to Entity
             SalesOrderPayment payment = new SalesOrderPayment();
             payment.setAmount(dto.getAmount() != null ? dto.getAmount() : BigDecimal.ZERO);
-            payment.setGrandTotal(dto.getGrandTotal() != null ? dto.getGrandTotal() : BigDecimal.ZERO); // <-- MUST set this
+            payment.setGrandTotal(dto.getGrandTotal() != null ? dto.getGrandTotal() : BigDecimal.ZERO);
             payment.setPaymentMethod(dto.getPaymentMethod());
             payment.setSalesOrder(order);
             payment.setCreatedBy(dto.getUserId());
             payment.setCreatedAt(LocalDateTime.now());
 
             String paymentMethod = dto.getPaymentMethod() != null ? dto.getPaymentMethod().trim() : "";
+            boolean isCheque = "cheque".equalsIgnoreCase(paymentMethod);
 
-            if (!"cash".equalsIgnoreCase(paymentMethod)) {
+            // 3. Handle Payment Lifecycle Status
+            if (isCheque) {
+                payment.setStatus("REALIZING"); // The "Pending" state
                 payment.setBank(dto.getBank() != null ? dto.getBank().trim() : null);
                 payment.setChequeNumber(dto.getChequeNumber() != null ? dto.getChequeNumber().trim() : null);
 
                 if (dto.getChequeIssueDate() != null && !dto.getChequeIssueDate().isBlank()) {
                     payment.setChequeIssueDate(LocalDate.parse(dto.getChequeIssueDate().trim()));
                 }
-
                 if (dto.getChequeDueDate() != null && !dto.getChequeDueDate().isBlank()) {
                     payment.setChequeDueDate(LocalDate.parse(dto.getChequeDueDate().trim()));
                 }
+            } else {
+                payment.setStatus("PAID"); // Cash is realized immediately
             }
 
-            salesOrderPaymentRepository.save(payment);
-
-            BigDecimal totalPaid = salesOrderPaymentRepository
+            // 4. Calculate Sales Order Due Balance
+            // Logic: Include existing Cash (PAID) and existing Realized Cheques (REALIZED)
+            BigDecimal existingConfirmedPaid = salesOrderPaymentRepository
                     .findBySalesOrderId(dto.getSalesOrderId())
                     .stream()
+                    .filter(p -> "PAID".equalsIgnoreCase(p.getStatus()) || "REALIZED".equalsIgnoreCase(p.getStatus()))
                     .map(SalesOrderPayment::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            BigDecimal dueBalance = calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType()).subtract(totalPaid);
-            dueBalance = dueBalance.max(BigDecimal.ZERO);
+            // To avoid overlap, we also check if there are any other 'REALIZING' (pending) cheques
+            // already in the system and treat them as "paid" for the sake of the balance calculation.
+            BigDecimal pendingChequesTotal = salesOrderPaymentRepository
+                    .findBySalesOrderId(dto.getSalesOrderId())
+                    .stream()
+                    .filter(p -> "REALIZING".equalsIgnoreCase(p.getStatus()))
+                    .map(SalesOrderPayment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // Total deduction = Previous Confirmed + Previous Pending + Current Payment (Cash or Cheque)
+            BigDecimal totalDeduction = existingConfirmedPaid
+                    .add(pendingChequesTotal)
+                    .add(payment.getAmount());
+
+            BigDecimal netTotal = calculateNetTotal(order.getGrandTotal(), order.getCourierCharges(),
+                    order.getAdditionalDiscount(), order.getReturnCredits(),
+                    order.getAdditionalDiscountType());
+
+            // Now dueBalance will be (Total - All payments submitted to date)
+            BigDecimal dueBalance = netTotal.subtract(totalDeduction).max(BigDecimal.ZERO);
             payment.setDueBalance(dueBalance);
 
-            if (dueBalance.compareTo(BigDecimal.ZERO) == 0) {
-                order.setPaymentStatus("PAID");
-                order.setOverDueOn(null);
-            } else if (dueBalance.compareTo(calculateNetTotal(order.getGrandTotal(),order.getCourierCharges(),order.getAdditionalDiscount(),order.getReturnCredits(),order.getAdditionalDiscountType())) < 0) {
-                order.setPaymentStatus("PARTIAL");
+            // 5. Update Sales Order Table Payment Status
+            if (isCheque) {
+                // Setting this to REALIZING triggers your "Realize" button on the frontend
+                order.setPaymentStatus("REALIZING");
             } else {
-                order.setPaymentStatus("UNPAID");
+                if (dueBalance.compareTo(BigDecimal.ZERO) == 0) {
+                    order.setPaymentStatus("PAID");
+                    order.setOverDueOn(null);
+                } else if (dueBalance.compareTo(netTotal) < 0) {
+                    order.setPaymentStatus("PARTIAL");
+                } else {
+                    order.setPaymentStatus("UNPAID");
+                }
             }
 
+            // 6. Update Customer Table Due Balance
+            // Requirement: Reduce customer's total debt immediately upon cheque receipt
             Customer customer = customerRepository.findById(order.getCustomer().getId())
                     .orElseThrow(() -> new NotFoundException("Customer not found"));
 
             customer.setDueBalance(customer.getDueBalance().subtract(dto.getAmount()));
 
+            // 7. Persist All Changes
             customerRepository.save(customer);
-
             salesOrderPaymentRepository.save(payment);
             salesOrderRepository.save(order);
 
-
             return Response.builder()
                     .status(200)
-                    .message("Payment recorded successfully")
+                    .message(isCheque ? "Cheque recorded. Status set to REALIZING." : "Payment successful.")
                     .build();
 
         } catch (Exception e) {
             return Response.builder()
                     .status(500)
-                    .message("Failed to create SalesOrder payment: " + e.getMessage())
+                    .message("Failed to record payment: " + e.getMessage())
                     .build();
+        }
+    }
+
+    public List<SalesOrderPayment> getPendingChequesByOrderId(Long salesOrderId) {
+        return salesOrderPaymentRepository.findBySalesOrderId(salesOrderId)
+                .stream()
+                .filter(p -> "REALIZING".equalsIgnoreCase(p.getStatus()))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public Response processChequeStatus(Long paymentId, String status) {
+        SalesOrderPayment payment = salesOrderPaymentRepository.findById(paymentId)
+                .orElseThrow(() -> new NotFoundException("Payment record not found"));
+
+        SalesOrder order = payment.getSalesOrder();
+
+        try {
+            if ("REALIZED".equalsIgnoreCase(status)) {
+                payment.setStatus("REALIZED");
+            }
+            else if ("RETURNED".equalsIgnoreCase(status)) {
+                payment.setStatus("RETURNED");
+
+                // 1. Reverse Customer Debt
+                Customer customer = order.getCustomer();
+                customer.setDueBalance(customer.getDueBalance().add(payment.getAmount()));
+                customerRepository.save(customer);
+
+                // 2. Reverse Payment Record Due Balance
+                payment.setDueBalance(payment.getDueBalance().add(payment.getAmount()));
+            }
+
+            salesOrderPaymentRepository.save(payment);
+
+            // --- MASTER STATUS CALCULATION ---
+
+            // Sum all actually cleared money (Cash or Realized Cheques)
+            BigDecimal totalConfirmed = salesOrderPaymentRepository.findBySalesOrderId(order.getId())
+                    .stream()
+                    .filter(p -> "PAID".equalsIgnoreCase(p.getStatus()) || "REALIZED".equalsIgnoreCase(p.getStatus()))
+                    .map(SalesOrderPayment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // Check for other "in-flight" cheques
+            boolean hasPending = salesOrderPaymentRepository
+                    .existsBySalesOrderIdAndStatusIgnoreCase(order.getId(), "REALIZING");
+
+            BigDecimal netTotal = calculateNetTotal(order.getGrandTotal(), order.getCourierCharges(),
+                    order.getAdditionalDiscount(), order.getReturnCredits(),
+                    order.getAdditionalDiscountType());
+
+            // Logic to determine the correct label
+            if (totalConfirmed.compareTo(netTotal) >= 0) {
+                order.setPaymentStatus("PAID");
+            }
+            else if (totalConfirmed.compareTo(BigDecimal.ZERO) == 0 && !hasPending) {
+                // If NO money has been cleared and NO cheques are pending, it's PENDING/UNPAID
+                order.setPaymentStatus("PENDING");
+            }
+            else if (hasPending) {
+                // If there are still cheques waiting in the bank, show REALIZING
+                order.setPaymentStatus("REALIZING");
+            }
+            else {
+                // If some money was cleared (e.g., a previous cash payment) but not all
+                order.setPaymentStatus("PARTIAL");
+            }
+
+            salesOrderRepository.save(order);
+
+            return Response.builder()
+                    .status(200)
+                    .message("Cheque " + status + ". Order status updated to " + order.getPaymentStatus())
+                    .build();
+
+        } catch (Exception e) {
+            return Response.builder().status(500).message("Update failed: " + e.getMessage()).build();
         }
     }
 

@@ -2,6 +2,9 @@ package com.biogenholdings.InventoryMgtSystem.services;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.*;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
+import com.biogenholdings.InventoryMgtSystem.models.SalesOrderPayment;
+
+import java.util.List;
 
 public interface SalesOrderService {
 
@@ -26,4 +29,8 @@ public interface SalesOrderService {
     Response getSalesOrderById(Long orderId);
 
     Response updateSalesOrderDeliveryStatus(Long orderId);
+
+    Response processChequeStatus(Long salesOrderId, String status);
+
+    List<SalesOrderPayment> getPendingChequesByOrderId(Long salesOrderId);
 }
