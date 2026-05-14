@@ -624,7 +624,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         SalesOrder order = payment.getSalesOrder();
 
         try {
-            if ("REALIZED".equalsIgnoreCase(status)) {
+            if ("PAID".equalsIgnoreCase(status)) {
                 payment.setStatus("REALIZED");
             }
             else if ("RETURNED".equalsIgnoreCase(status)) {
