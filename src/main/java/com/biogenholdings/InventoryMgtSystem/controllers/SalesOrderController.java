@@ -2,10 +2,13 @@ package com.biogenholdings.InventoryMgtSystem.controllers;
 
 import com.biogenholdings.InventoryMgtSystem.dtos.*;
 import com.biogenholdings.InventoryMgtSystem.enums.SalesOrderStatus;
+import com.biogenholdings.InventoryMgtSystem.models.SalesOrderPayment;
 import com.biogenholdings.InventoryMgtSystem.services.SalesOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/sales-orders")
@@ -76,5 +79,19 @@ public class SalesOrderController {
     @GetMapping("/updateDelivery/{orderId}")
     public ResponseEntity<Response> updateSaleOrderDeliveryStatus(@PathVariable Long orderId){
         return ResponseEntity.ok(salesOrderService.updateSalesOrderDeliveryStatus(orderId));
+    }
+
+    @PostMapping("/update-cheque-status")
+    public ResponseEntity<Response> updateChequeStatus(
+            @RequestParam Long paymentId,
+            @RequestParam String status) {
+        Response response = salesOrderService.processChequeStatus(paymentId, status);
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
+
+    @GetMapping("/pending-cheques/{salesOrderId}")
+    public ResponseEntity<List<SalesOrderPayment>> getPendingCheques(@PathVariable Long salesOrderId) {
+        List<SalesOrderPayment> cheques = salesOrderService.getPendingChequesByOrderId(salesOrderId);
+        return ResponseEntity.ok(cheques);
     }
 }

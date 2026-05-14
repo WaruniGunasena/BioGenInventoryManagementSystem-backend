@@ -29,4 +29,6 @@ public interface SalesOrderPaymentRepository extends JpaRepository<SalesOrderPay
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    boolean existsBySalesOrderIdAndStatusIgnoreCase(Long salesOrderId, String status);
 }

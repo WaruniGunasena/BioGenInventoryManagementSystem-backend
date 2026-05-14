@@ -31,6 +31,9 @@ public class SalesOrderPayment {
     @Column(nullable = false)
     private BigDecimal grandTotal;
 
+    @Column(nullable = false)
+    private String status;
+
     private String bank;
 
     private String chequeNumber;
@@ -69,6 +72,7 @@ public class SalesOrderPayment {
                 "id=" + id +
                 ", amount=" + amount +
                 ", paymentMethod='" + paymentMethod + '\'' +
+                ", status='" + status + '\'' +
                 ", grandTotal=" + grandTotal +
                 ", bank='" + bank + '\'' +
                 ", chequeNumber='" + chequeNumber + '\'' +
