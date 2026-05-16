@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 public interface MonthlyCommissionInvoiceRepository extends JpaRepository<MonthlyCommissionInvoice, Long> {
@@ -27,4 +29,13 @@ public interface MonthlyCommissionInvoiceRepository extends JpaRepository<Monthl
             @Param("userId") Long userId,
             Pageable pageable
     );
+
+    @Query("SELECT m FROM MonthlyCommissionInvoice m WHERE m.payoutStatus = 'UNPAID'")
+    List<MonthlyCommissionInvoice> findAllPendingCommissions();
+
+    @Query("SELECT SUM(m.netPayout) FROM MonthlyCommissionInvoice m WHERE m.payoutStatus = 'UNPAID'")
+    BigDecimal calculateTotalPendingCommissions();
+
+    @Query("SELECT COUNT(m) FROM MonthlyCommissionInvoice m WHERE m.payoutStatus = 'UNPAID'")
+    long countPendingCommissions();
 }
