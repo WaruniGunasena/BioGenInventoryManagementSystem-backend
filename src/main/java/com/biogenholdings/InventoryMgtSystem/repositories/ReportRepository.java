@@ -391,10 +391,9 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             /* 1. Customer Pending Cheque */
             " (SELECT COALESCE(SUM(sop.amount), 0) " +
             "  FROM sales_order_payments sop " +
-            "  JOIN sales_orders so ON sop.sales_order_id = so.id " +
-            "  WHERE UPPER(sop.payment_method) = 'CHEQUE' " +
-            "  AND so.status = 'PENDING' " +
-            "  AND sop.is_deleted = false AND so.is_deleted = false) as customerPendingCheque, " +
+            "  WHERE sop.payment_method = 'CHEQUE' " +
+            "  AND sop.status = 'REALIZING' " + // Targets cheques pending realization
+            "  AND sop.is_deleted = false) as customerPendingCheque, " +
 
             /* 2. Customer Pending Invoice */
             " (SELECT COALESCE(SUM(so.grand_total - COALESCE((SELECT SUM(sop2.amount) FROM sales_order_payments sop2 " +
@@ -406,9 +405,9 @@ public interface ReportRepository extends JpaRepository<SalesOrder, Long> {
             "    WHERE gp.grn_id = g.id AND gp.is_deleted = false), 0)), 0) " +
             "  FROM grn g WHERE g.is_deleted = false) as supplierPendingValue, " +
 
-            /* 4. Sales Rep Commission - FIXED: Wrapped in parentheses and removed extra SELECT/FROM */
-            " (SELECT COALESCE(SUM(total_commission), 0) " +
-            "  FROM sales_commission_summary) as salesRepCommission " +
+             /* 4. Sales Rep Commission - UPDATED: Pulls net_payout from monthly_commission_invoices */
+            " (SELECT COALESCE(SUM(net_payout), 0) " +
+            "  FROM monthly_commission_invoices WHERE payout_status != 'PAID') as salesRepCommission " +
 
             "FROM (SELECT 1) as dummy",
             nativeQuery = true)
@@ -775,4 +774,54 @@ List<Map<String, Object>> getCustomerInvoiceHistory(@Param("cId") Long customerI
                     "ORDER BY p.name ASC",
             nativeQuery = true)
     List<Map<String, Object>> getAnnualProductSales(@Param("year") int year);
+
+    @Query(value =
+            "SELECT " +
+                    "    sop.cheque_due_date AS Date, " +
+                    "    c.name AS Customer_Name, " +
+                    "    sop.cheque_number AS Cheque_No, " +
+                    "    sop.bank AS Cheque_Bank, " +
+                    "    sop.cheque_issue_date AS Cheque_Date, " +
+                    "    CASE " +
+                    "        WHEN sop.status = 'REALIZED' THEN 'Realised' " +
+                    "        WHEN sop.status = 'RETURNED' THEN 'Returned' " +
+                    "        ELSE 'Not Realised' " +
+                    "    END AS Status_Label, " +
+                    "    sop.amount AS Amount " +
+                    "FROM sales_order_payments sop " +
+                    "JOIN sales_orders so ON sop.sales_order_id = so.id " +
+                    "JOIN customers c ON so.customer_id = c.id " +
+                    "WHERE sop.payment_method = 'CHEQUE' " +
+                    "AND sop.cheque_due_date BETWEEN :startDate AND :endDate " +
+                    "AND (:status IS NULL OR sop.status = :status) " +
+                    "AND sop.is_deleted = false " +
+                    "ORDER BY sop.cheque_due_date ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getChequeSummaryReport(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("status") String status
+    );
+
+    @Query(value =
+            "SELECT " +
+                    "    sop.cheque_due_date AS Date, " +
+                    "    c.name AS Customer_Name, " +
+                    "    sop.cheque_number AS Cheque_No, " +
+                    "    sop.bank AS Cheque_Bank, " +
+                    "    sop.cheque_issue_date AS Cheque_Date, " +
+                    "    CASE " +
+                    "        WHEN :status = 'REALIZING' THEN CONCAT(DATEDIFF(CURRENT_DATE, sop.cheque_due_date), ' Days') " +
+                    "        ELSE sop.status " +
+                    "    END AS Status_Or_Age, " +
+                    "    sop.amount AS Amount " +
+                    "FROM sales_order_payments sop " +
+                    "JOIN sales_orders so ON sop.sales_order_id = so.id " +
+                    "JOIN customers c ON so.customer_id = c.id " +
+                    "WHERE sop.payment_method = 'CHEQUE' " +
+                    "AND sop.status = :status " +
+                    "AND sop.is_deleted = false " +
+                    "ORDER BY sop.cheque_due_date ASC",
+            nativeQuery = true)
+    List<Map<String, Object>> getChequeReportByStatus(@Param("status") String status);
 }
