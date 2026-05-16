@@ -1,18 +1,9 @@
 package com.biogenholdings.InventoryMgtSystem.services.impl;
 
-import com.biogenholdings.InventoryMgtSystem.dtos.CashFlowSummaryDTO;
-import com.biogenholdings.InventoryMgtSystem.dtos.CreditDTO;
-import com.biogenholdings.InventoryMgtSystem.dtos.DebitDTO;
-import com.biogenholdings.InventoryMgtSystem.dtos.Response;
+import com.biogenholdings.InventoryMgtSystem.dtos.*;
 import com.biogenholdings.InventoryMgtSystem.enums.DiscountTypeEnum;
-import com.biogenholdings.InventoryMgtSystem.models.GRN;
-import com.biogenholdings.InventoryMgtSystem.models.GRNPayment;
-import com.biogenholdings.InventoryMgtSystem.models.SalesOrder;
-import com.biogenholdings.InventoryMgtSystem.models.SalesOrderPayment;
-import com.biogenholdings.InventoryMgtSystem.repositories.GRNPaymentRepository;
-import com.biogenholdings.InventoryMgtSystem.repositories.GRNRepository;
-import com.biogenholdings.InventoryMgtSystem.repositories.SalesOrderPaymentRepository;
-import com.biogenholdings.InventoryMgtSystem.repositories.SalesOrderRepository;
+import com.biogenholdings.InventoryMgtSystem.models.*;
+import com.biogenholdings.InventoryMgtSystem.repositories.*;
 import com.biogenholdings.InventoryMgtSystem.services.CashFlowService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +24,8 @@ public class CashFlowServiceImpl implements CashFlowService {
     private final GRNPaymentRepository grnPaymentRepository;
     private final SalesOrderRepository salesOrderRepository;
     private final SalesOrderPaymentRepository salesOrderPaymentRepository;
+    private final MonthlyCommissionInvoiceRepository commissionRepository;
+    private final CommissionPaymentRepository commissionPaymentRepository;
 
     @Override
     public Response getPendingCashFlow(LocalDate startDate, LocalDate endDate) {
@@ -49,9 +42,16 @@ public class CashFlowServiceImpl implements CashFlowService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
+        List<MonthlyCommissionInvoice> pendingCommissions = commissionRepository.findAllPendingCommissions();
+        List<CommissionDTO> commissions = pendingCommissions.stream()
+                .map(invoice -> mapToCommissionDTO(invoice, startDate, endDate))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
         return Response.builder()
                 .credits(credits)
                 .debits(debits)
+                .commissions(commissions)
                 .build();
     }
 
@@ -124,7 +124,8 @@ public class CashFlowServiceImpl implements CashFlowService {
             }
         }
 
-        if ("PARTIAL".equalsIgnoreCase(salesOrder.getPaymentStatus())) {
+        String paymentStatus = salesOrder.getPaymentStatus();
+        if ("PARTIAL".equalsIgnoreCase(paymentStatus) || "REALIZING".equalsIgnoreCase(paymentStatus)) {
 
             SalesOrderPayment latestPayment = salesOrderPaymentRepository
                     .findTopBySalesOrderIdOrderByIdDesc(salesOrder.getId());
@@ -149,6 +150,28 @@ public class CashFlowServiceImpl implements CashFlowService {
                 .invoiceNumber(salesOrder.getInvoiceNumber())
                 .amount(dueAmount)
                 .date(displayDate)
+                .build();
+    }
+
+    private CommissionDTO mapToCommissionDTO(MonthlyCommissionInvoice invoice, LocalDate startDate, LocalDate endDate) {
+
+        if (invoice.getGeneratedDate() == null) {
+            return null;
+        }
+
+        LocalDate invoiceDate = invoice.getGeneratedDate().toLocalDate();
+
+        if (invoiceDate.isAfter(endDate) || invoiceDate.isBefore(startDate)) {
+            return null;
+        }
+
+        String repName = (invoice.getSalesRep() != null) ? invoice.getSalesRep().getName() : "Unknown Rep";
+
+        return CommissionDTO.builder()
+                .commission_invoice_number(invoice.getCommissionInvoiceNumber())
+                .salesRep(repName)
+                .net_payout(invoice.getNetPayout())
+                .month_year(invoice.getMonthYear())
                 .build();
     }
 
@@ -186,11 +209,32 @@ public class CashFlowServiceImpl implements CashFlowService {
                 )
                 .collect(Collectors.toList());
 
+        List<CommissionPayment> commissionPayments = commissionPaymentRepository
+                .findCompletedPayments(startDateTime, endDateTime);
+
+        List<CommissionDTO> commissions = commissionPayments.stream()
+                .map(payment -> {
+                    var invoice = payment.getInvoice();
+                    String repName = (invoice != null && invoice.getSalesRep() != null)
+                            ? invoice.getSalesRep().getName()
+                            : "Unknown Rep";
+                    String invoiceNum = (invoice != null) ? invoice.getCommissionInvoiceNumber() : "N/A";
+
+                    return CommissionDTO.builder()
+                            .commission_invoice_number(invoiceNum)
+                            .salesRep(repName)
+                            .net_payout(payment.getAmount())
+                            .paid_date(payment.getCreatedAt().toLocalDate())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
         return Response.builder()
                 .status(200)
                 .message("Completed cash flow retrieved successfully")
                 .credits(credits)
                 .debits(debits)
+                .commissions(commissions)
                 .build();
     }
 
@@ -203,48 +247,62 @@ public class CashFlowServiceImpl implements CashFlowService {
         LocalDateTime prevStartDateTime = startDateTime.minusDays(daysInPeriod);
         LocalDateTime prevEndDateTime = endDateTime.minusDays(daysInPeriod);
 
+        // --- INFLOW (Income) ---
         BigDecimal currentInflow = salesOrderRepository.sumCompletedInflow(startDateTime, endDateTime);
         BigDecimal previousInflow = salesOrderRepository.sumCompletedInflow(prevStartDateTime, prevEndDateTime);
-
         currentInflow = (currentInflow != null) ? currentInflow : BigDecimal.ZERO;
         previousInflow = (previousInflow != null) ? previousInflow : BigDecimal.ZERO;
 
         double inflowChange = calculatePercentageChange(currentInflow, previousInflow);
-
-        BigDecimal netInflow = salesOrderRepository.sumCompletedInflow(startDateTime, endDateTime);
         long salesCount = salesOrderRepository.countSalesWithPayments(startDateTime, endDateTime);
 
-        BigDecimal currentOutflow = grnPaymentRepository.sumCompletedOutflow(startDateTime, endDateTime);
-        BigDecimal prevOutflow = grnPaymentRepository.sumCompletedOutflow(prevStartDateTime, prevEndDateTime);
+        // --- OUTFLOW (Expense: GRN + Commissions) ---
+        // Current Period
+        BigDecimal currentGrnOutflow = grnPaymentRepository.sumCompletedOutflow(startDateTime, endDateTime);
+        BigDecimal currentCommOutflow = commissionPaymentRepository.sumCompletedCommissionPayments(startDateTime, endDateTime);
+        BigDecimal totalCurrentOutflow = (currentGrnOutflow != null ? currentGrnOutflow : BigDecimal.ZERO)
+                .add(currentCommOutflow != null ? currentCommOutflow : BigDecimal.ZERO);
 
-        currentOutflow = (currentOutflow != null) ? currentOutflow : BigDecimal.ZERO;
-        prevOutflow = (prevOutflow != null) ? prevOutflow : BigDecimal.ZERO;
+        // Previous Period
+        BigDecimal prevGrnOutflow = grnPaymentRepository.sumCompletedOutflow(prevStartDateTime, prevEndDateTime);
+        BigDecimal prevCommOutflow = commissionPaymentRepository.sumCompletedCommissionPayments(prevStartDateTime, prevEndDateTime);
+        BigDecimal totalPrevOutflow = (prevGrnOutflow != null ? prevGrnOutflow : BigDecimal.ZERO)
+                .add(prevCommOutflow != null ? prevCommOutflow : BigDecimal.ZERO);
 
-        double outflowChange = calculatePercentageChange(currentOutflow, prevOutflow);
+        double outflowChange = calculatePercentageChange(totalCurrentOutflow, totalPrevOutflow);
 
-        BigDecimal netOutflow = grnPaymentRepository.sumCompletedOutflow(startDateTime, endDateTime);
+        // Total Expense Counts
         long grnCount = grnPaymentRepository.countCompletedPayments(startDateTime, endDateTime);
+        long commCount = commissionPaymentRepository.countCompletedCommissionPayments(startDateTime, endDateTime);
 
-        BigDecimal operatingFlow = currentInflow.subtract(currentOutflow);
+        // Operating Flow (Profit/Loss)
+        BigDecimal operatingFlow = currentInflow.subtract(totalCurrentOutflow);
 
+        // --- PENDING PAYMENTS (Accounts Receivable/Payable) ---
         BigDecimal accountsReceivable = salesOrderRepository.calculateTotalAccountsReceivable();
         long pendingSalesCount = salesOrderRepository.countPendingSales();
 
-        BigDecimal accountsPayable = grnRepository.calculateTotalAccountsPayable();
+        // Accounts Payable = Pending GRNs + Pending Commission Invoices
+        BigDecimal pendingGrnAmount = grnRepository.calculateTotalAccountsPayable();
+        BigDecimal pendingCommAmount = commissionRepository.calculateTotalPendingCommissions();
+        BigDecimal totalAccountsPayable = (pendingGrnAmount != null ? pendingGrnAmount : BigDecimal.ZERO)
+                .add(pendingCommAmount != null ? pendingCommAmount : BigDecimal.ZERO);
+
         long pendingPurchaseCount = grnRepository.countPendingPurchases();
+        long pendingCommCount = commissionRepository.countPendingCommissions();
 
         CashFlowSummaryDTO summary = CashFlowSummaryDTO.builder()
-                .netCashInflow(netInflow != null ? netInflow : BigDecimal.ZERO)
+                .netCashInflow(currentInflow)
                 .totalSalesCount(salesCount)
                 .inflowPercentageChange(inflowChange)
-                .netCashOutflow(netOutflow != null ? currentOutflow : BigDecimal.ZERO)
+                .netCashOutflow(totalCurrentOutflow)
                 .outflowPercentageChange(outflowChange)
-                .totalGrnCount(grnCount)
+                .totalGrnCount(grnCount + commCount)
                 .operatingCashFlow(operatingFlow)
-                .accountsReceivable(accountsReceivable)
+                .accountsReceivable(accountsReceivable != null ? accountsReceivable : BigDecimal.ZERO)
                 .pendingSalesCount(pendingSalesCount)
-                .accountsPayable(accountsPayable)
-                .pendingPurchaseCount(pendingPurchaseCount)
+                .accountsPayable(totalAccountsPayable)
+                .pendingPurchaseCount(pendingPurchaseCount + pendingCommCount)
                 .build();
 
         return Response.builder()

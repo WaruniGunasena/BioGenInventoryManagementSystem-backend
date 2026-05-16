@@ -59,6 +59,7 @@ public class Response {
 
     private List<CreditDTO> credits;
     private List<DebitDTO> debits;
+    private List<CommissionDTO> commissions;
 
     private CashFlowSummaryDTO cashFlowSummary;
     private List<ProductReturnResponseDTO> productReturnList;

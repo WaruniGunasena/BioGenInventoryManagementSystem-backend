@@ -53,7 +53,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     BigDecimal getTotalOutstandingBalance();
 
     @Query("SELECT s FROM SalesOrder s JOIN FETCH s.customer " +
-            "WHERE UPPER(s.paymentStatus) IN ('PARTIAL', 'PENDING')" +
+            "WHERE UPPER(s.paymentStatus) IN ('PARTIAL', 'PENDING', 'REALIZING')" +
             "AND s.isDeleted = false")
     List<SalesOrder> findAllPendingDebits();
 
